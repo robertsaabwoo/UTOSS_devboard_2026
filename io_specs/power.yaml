@@ -5,9 +5,13 @@ owner_doc: null   # example project, not tied to initial_roles/*.md
 nets:
   - name: VIN_12V
     type: input
+    current_type: DC        # board itself is pure DC; mains AC->DC conversion
+                             # happens in the external wall adapter, out of scope
+    frequency_hz: null       # N/A — DC input
     nominal_v: 12.0
     min_v: 11.4
     max_v: 12.6
+    tolerance_pct: 5
     notes: >
       Barrel jack (5.5x2.1mm, center-positive), standard wall adapter.
       Add reverse-polarity protection (ideal diode or P-MOSFET) and a
@@ -16,9 +20,16 @@ nets:
 
   - name: +5V
     type: rail
+    current_type: DC
+    frequency_hz: null
+    switching_frequency_hz: null   # N/A for the CI behavioral model (see
+                                    # spice/power/models.lib); a real switching
+                                    # regulator will have Fsw ~300kHz-1.5MHz —
+                                    # revisit ripple/EMI once a real part is picked
     nominal_v: 5.0
     min_v: 4.9
     max_v: 5.1
+    tolerance_pct: 2
     min_current_a: 2.0    # QMTECH lists 1A@5V typical; budget headroom for
                            # a larger XC7A200T + any DDR3/user load on core board
     max_ripple_mv: 30
@@ -26,9 +37,13 @@ nets:
 
   - name: +3V3
     type: rail
+    current_type: DC
+    frequency_hz: null
+    switching_frequency_hz: null
     nominal_v: 3.3
     min_v: 3.2
     max_v: 3.4
+    tolerance_pct: 3
     min_current_a: 0.5
     notes: >
       Powers carrier-side peripherals only (UART bridge IC, status LEDs).
@@ -39,3 +54,9 @@ nets:
 constraints:
   - single_continuous_ground_plane: true
   - star_ground_at_input_jack: true
+
+ci:
+  schematic: hardware/devboard.kicad_sch
+  spice_testbench: spice/power/testbench.cir
+  spice_model: spice/power/models.lib
+  checker: scripts/check_power_spec.py

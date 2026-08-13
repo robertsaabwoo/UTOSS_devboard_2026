@@ -1,0 +1,10 @@
+* Behavioral regulator macromodel for CI verification.
+* This is NOT a vendor part model — it's an ideal voltage source (VSET) in
+* series with an output resistance (RS) that stands in for load regulation,
+* so we can assert "does this rail land in spec under load" in CI before a
+* real IC is chosen. Swap for a real vendor SPICE model once U1/U2 are
+* selected, and update io_specs/power.yaml accordingly.
+.subckt REG VIN GND VOUT PARAMS: VSET=5.0 RS=0.01
+Eout VOUT_IDEAL GND VALUE = {VSET}
+Rout VOUT_IDEAL VOUT {RS}
+.ends REG
