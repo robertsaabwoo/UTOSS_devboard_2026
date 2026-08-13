@@ -213,7 +213,7 @@
 		(property "Datasheet" "" (at 40 20 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Sim.Device" "SUBCKT" (at 40 20 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Sim.Pins" "1=VIN 2=GND 3=VOUT" (at 40 20 0) (effects (font (size 1.27 1.27)) hide))
-		(property "Sim.Params" "VSET=5.0 RS=0.005" (at 40 20 0) (effects (font (size 1.27 1.27)) hide))
+		(property "Sim.Params" "VSET=5.6 RS=0.005" (at 40 20 0) (effects (font (size 1.27 1.27)) hide))
 		(instances (project "devboard" (path "/00000000-0000-0000-0000-000000000000" (reference "U1") (unit 1))))
 	)
 	(symbol (lib_id "utoss:CAP") (at 60 20 0) (unit 1)
