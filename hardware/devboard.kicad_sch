@@ -199,7 +199,7 @@
 		(in_bom yes) (on_board yes) (dnp no)
 		(uuid "00000000-0000-0000-0000-000000000002")
 		(property "Reference" "C1" (at 20 23.81 0) (effects (font (size 1.27 1.27))))
-		(property "Value" "10uF_Cin" (at 20 16.19 0) (effects (font (size 1.27 1.27))))
+		(property "Value" "22uF_Cin" (at 20 16.19 0) (effects (font (size 1.27 1.27))))
 		(property "Footprint" "" (at 20 20 0) (effects (font (size 1.27 1.27)) hide))
 		(property "Datasheet" "" (at 20 20 0) (effects (font (size 1.27 1.27)) hide))
 		(instances (project "devboard" (path "/00000000-0000-0000-0000-000000000000" (reference "C1") (unit 1))))
