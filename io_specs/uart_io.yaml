@@ -1,0 +1,34 @@
+# UART I/O submodule — USB-to-UART bridge for the FPGA Linux console.
+# No MCU in this example: a dedicated bridge IC handles USB directly.
+block: uart_io
+owner_doc: null
+
+nets:
+  - name: BRIDGE_3V3
+    type: rail
+    source: power.+3V3
+    nominal_v: 3.3
+
+  - name: UART_FPGA
+    type: logic
+    logic_level_v: 3.3
+    standard: LVCMOS33
+    notes: >
+      Bridge IC must be a 3.3V-native I/O variant (e.g. FTDI FT232RL,
+      Silicon Labs CP2102N in 3.3V mode) so it connects directly to the
+      FPGA GPIO bank (see fpga.yaml GPIO_BANK) with no external level
+      shifter.
+
+interfaces:
+  - name: USB
+    connector: USB-C (or Micro-B)
+    notes: User-facing connector to host PC — highest ESD exposure on the board.
+  - name: UART
+    signals:
+      TXD: "bridge TXD -> FPGA RXD pin"
+      RXD: "bridge RXD <- FPGA TXD pin (crossed)"
+    baud_note: Flow control (RTS/CTS) optional; TX/RX-only sufficient for console.
+
+constraints:
+  - esd_protection: "TVS diode array required on USB D+/D- lines."
+  - shared_ground: "Common ground plane with power and fpga submodules — no isolated/split ground."

@@ -1,0 +1,32 @@
+# --- KiCad ---
+# Backups & autosave
+*.bak
+*-backups/
+_autosave-*
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*.kicad_prl.bak
+
+# Local project state (not team-shared)
+*.kicad_prl
+fp-info-cache
+*.lck
+*.lock
+
+# Plugin / 3rd party cache
+.stackup-lock
+
+# --- CI-generated fabrication outputs (regenerate via workflow, don't commit) ---
+/fab_outputs/
+/gerbers/
+*.zip
+
+# --- SPICE ---
+*.raw
+*.log
+b3_*.log
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.vscode/

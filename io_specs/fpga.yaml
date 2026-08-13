@@ -1,0 +1,52 @@
+# FPGA submodule — carrier-side interface to the purchased QMTECH XC7A-series
+# Artix-7 core board (this carrier does NOT place the raw BGA chip itself).
+block: fpga
+owner_doc: https://github.com/ChinaQMTECH/QMTECH_XC7A75T-100T-200T_Core_Board  # vendor manuals, not vendored into this repo
+chip_family: Artix-7 (XC7A75T / XC7A100T / XC7A200T, core-board-mounted)
+
+nets:
+  - name: CORE_5V_IN
+    type: input
+    source: power.+5V
+    nominal_v: 5.0
+    notes: Delivered from the Power submodule to the core board's 5V header pin(s).
+
+  - name: GPIO_BANK
+    type: logic
+    logic_level_v: 3.3
+    standard: LVCMOS33
+    recommended_operating_range_v: [3.135, 3.465]   # Xilinx DS181, 7 Series FPGAs
+    notes: >
+      ALL header GPIO on the core board is fixed at 3.3V logic — the core
+      board sets its own bank voltage internally. Anything the carrier wires
+      to these pins (UART bridge, buttons, LEDs) MUST be 3.3V logic. Do not
+      assume 5V tolerance.
+
+interfaces:
+  - name: HEADER_A
+    connector: 2x64, 2.54mm pitch    # per QMTECH XC7A100T core board headers
+    notes: Pin-out must be transcribed from the QMTECH manual/schematic before layout.
+  - name: HEADER_B
+    connector: 2x64, 2.54mm pitch
+
+open_items:
+  - id: jtag-programming-path
+    status: UNCONFIRMED
+    question: >
+      Does the QMTECH core board have onboard USB-JTAG, or does it expose
+      raw TCK/TMS/TDI/TDO/TRST pins requiring an external programmer
+      (e.g. Xilinx Platform Cable / Digilent JTAG-HS) wired through the
+      carrier? This determines whether the carrier needs its own JTAG
+      header. MUST resolve before finalizing the fpga sheet — verify from
+      the vendor manuals (see owner_doc above) or the board silkscreen/schematic.
+  - id: config-mode-pins
+    status: UNCONFIRMED
+    question: >
+      Are PROG_B / DONE / INIT_B exposed on the headers? If so, recommend
+      wiring PROG_B to a carrier pushbutton for reconfig without a full
+      power cycle.
+
+constraints:
+  - no_hot_plug: "Do not seat/remove the core board while the carrier is powered."
+  - keying: "Add a silkscreen polarity/keying mark — reversed insertion on a 2x64 header is destructive."
+  - standoff_height: "Confirm core board connector mating height for mechanical clearance."

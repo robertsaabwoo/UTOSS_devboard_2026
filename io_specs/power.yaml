@@ -1,0 +1,41 @@
+# Power submodule — supplies the FPGA core-board module and carrier peripherals.
+block: power
+owner_doc: null   # example project, not tied to initial_roles/*.md
+
+nets:
+  - name: VIN_12V
+    type: input
+    nominal_v: 12.0
+    min_v: 11.4
+    max_v: 12.6
+    notes: >
+      Barrel jack (5.5x2.1mm, center-positive), standard wall adapter.
+      Add reverse-polarity protection (ideal diode or P-MOSFET) and a
+      resettable fuse (PTC) on this net — it's the board's single
+      user-facing power entry point.
+
+  - name: +5V
+    type: rail
+    nominal_v: 5.0
+    min_v: 4.9
+    max_v: 5.1
+    min_current_a: 2.0    # QMTECH lists 1A@5V typical; budget headroom for
+                           # a larger XC7A200T + any DDR3/user load on core board
+    max_ripple_mv: 30
+    notes: Feeds the FPGA core-board module's 5V input pin directly. See fpga.yaml.
+
+  - name: +3V3
+    type: rail
+    nominal_v: 3.3
+    min_v: 3.2
+    max_v: 3.4
+    min_current_a: 0.5
+    notes: >
+      Powers carrier-side peripherals only (UART bridge IC, status LEDs).
+      Generate locally on the carrier — do NOT tap the core board's onboard
+      3.3V pin (if exposed), since it's sized for the FPGA's internal rails,
+      not extra carrier load.
+
+constraints:
+  - single_continuous_ground_plane: true
+  - star_ground_at_input_jack: true
