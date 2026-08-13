@@ -9,14 +9,16 @@ jobs:
   erc:
     name: Schematic ERC
     runs-on: ubuntu-latest
-    container: kicad/kicad:9.0
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run ERC on power schematic
+      - name: Run ERC on power schematic (dockerized kicad-cli)
         run: |
           mkdir -p erc_out
-          kicad-cli sch erc hardware/devboard.kicad_sch --output erc_out/erc.json
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" -w /work \
+            kicad/kicad:9.0 \
+            kicad-cli sch erc hardware/devboard.kicad_sch --output erc_out/erc.json
 
       - name: Upload ERC report
         if: always()
