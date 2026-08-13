@@ -4,6 +4,8 @@ import re
 import subprocess
 import sys
 import pathlib
+from typing import Optional
+
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -13,8 +15,10 @@ TESTBENCH = ROOT / "spice" / "power" / "testbench.cir"
 # SPICE node name -> io_specs net name
 NODE_TO_NET = {"PLUS5V": "+5V", "PLUS3V3": "+3V3"}
 
+NUMBER_RE = r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
 
-def run_ngspice() -> str:
+
+def run_ngspice() -> tuple[int, str]:
     result = subprocess.run(
         ["ngspice", "-b", TESTBENCH.name],
         cwd=TESTBENCH.parent,
@@ -22,25 +26,45 @@ def run_ngspice() -> str:
         text=True,
         timeout=60,
     )
-    return result.stdout + "\n" + result.stderr
+    return result.returncode, result.stdout + "\n" + result.stderr
 
 
-def parse_voltage(output: str, node: str) -> float | None:
-    match = re.search(rf"{node.lower()}\s*=\s*([-\d.eE+]+)", output.lower())
-    return float(match.group(1)) if match else None
+def parse_voltage(output: str, node: str) -> Optional[float]:
+    """Find the last line mentioning `node` and pull the last number off it.
+
+    Robust to ngspice print-format variation (e.g. "plus5v = 4.98e+00" vs
+    "v(plus5v) = 4.98e+00" vs different column spacing) since we don't
+    anchor on an exact prefix/operator, just: line mentions the node,
+    take its last numeric token.
+    """
+    best = None
+    for line in output.splitlines():
+        if node.lower() in line.lower():
+            matches = re.findall(NUMBER_RE, line)
+            if matches:
+                best = float(matches[-1])
+    return best
 
 
 def main() -> None:
     spec = yaml.safe_load(SPEC_PATH.read_text())
     nets_by_name = {n["name"]: n for n in spec["nets"]}
 
-    output = run_ngspice()
+    returncode, output = run_ngspice()
+    print("--- ngspice output ---")
+    print(output)
+    print("--- end ngspice output ---\n")
+
+    if returncode != 0:
+        print(f"ngspice exited with code {returncode} — simulation did not complete.")
+        sys.exit(1)
+
     failures = []
 
     for node, net_name in NODE_TO_NET.items():
         voltage = parse_voltage(output, node)
         if voltage is None:
-            failures.append(f"{net_name}: could not parse simulated voltage from ngspice output for node {node}")
+            failures.append(f"{net_name}: could not find node '{node}' in ngspice output")
             continue
 
         net_spec = nets_by_name.get(net_name)
@@ -60,8 +84,6 @@ def main() -> None:
         print("\nSPICE VERIFY FAILED:")
         for f in failures:
             print(f"  - {f}")
-        print("\n--- full ngspice output (for debugging) ---")
-        print(output)
         sys.exit(1)
 
     print("\nSPICE VERIFY PASSED")
