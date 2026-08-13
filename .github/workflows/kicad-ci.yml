@@ -1,0 +1,43 @@
+name: kicad-ci
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+jobs:
+  erc:
+    name: Schematic ERC
+    runs-on: ubuntu-latest
+    container: kicad/kicad:9.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ERC on power schematic
+        run: |
+          mkdir -p erc_out
+          kicad-cli sch erc hardware/devboard.kicad_sch --output erc_out/erc.json
+
+      - name: Upload ERC report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: erc-report
+          path: erc_out/erc.json
+
+  spice-verify:
+    name: Power rail SPICE verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ngspice
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ngspice
+
+      - name: Install Python deps
+        run: pip install pyyaml
+
+      - name: Check power rails against io_specs/power.yaml
+        run: python3 scripts/check_power_spec.py
