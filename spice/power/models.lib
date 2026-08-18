@@ -4,7 +4,13 @@
 * so we can assert "does this rail land in spec under load" in CI before a
 * real IC is chosen. Swap for a real vendor SPICE model once U1/U2 are
 * selected, and update io_specs/power.yaml accordingly.
-.subckt REG VIN GND VOUT PARAMS: VSET=5.0 RS=0.01
-Eout VOUT_IDEAL GND VALUE = {VSET}
+*
+* LINEREG (default 0.0, i.e. perfect line regulation) optionally models
+* imperfect line regulation: effective setpoint drifts LINEREG volts per
+* volt of VIN deviation from the nominal 12V input. Lets the CI line sweep
+* (io_specs/power.yaml `sweeps:`) exercise something real instead of a
+* no-op axis.
+.subckt REG VIN GND VOUT PARAMS: VSET=5.0 RS=0.01 LINEREG=0.0
+Eout VOUT_IDEAL GND VALUE = {VSET + LINEREG*(V(VIN,GND)-12)}
 Rout VOUT_IDEAL VOUT {RS}
 .ends REG
