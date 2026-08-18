@@ -72,13 +72,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run ERC on power schematic (dockerized kicad-cli)
+      # Run twice on purpose: capture every severity for the artifact first, so
+      # the report still uploads when the gate below fails.
+      - name: Generate ERC report (all severities)
         run: |
           mkdir -p erc_out
           docker run --rm \
             -v "${{ github.workspace }}:/work" -w /work \
             kicad/kicad:9.0 \
-            kicad-cli sch erc hardware/devboard.kicad_sch --output erc_out/erc.json
+            kicad-cli sch erc --format json --severity-all \
+              hardware/devboard.kicad_sch --output erc_out/erc.json
 
       - name: Upload ERC report
         if: always()
@@ -86,6 +89,18 @@ jobs:
         with:
           name: erc-report
           path: erc_out/erc.json
+          if-no-files-found: warn
+
+      # THE GATE. `kicad-cli sch erc` exits 0 even when violations exist unless
+      # --exit-code-violations is passed, so without this flag the job above
+      # can never fail and the check is decorative.
+      - name: Fail on ERC errors
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" -w /work \
+            kicad/kicad:9.0 \
+            kicad-cli sch erc --format json --severity-error --exit-code-violations \
+              hardware/devboard.kicad_sch --output erc_out/erc_errors.json
 
   power-spice:
     name: "power / SPICE sweep verification"
