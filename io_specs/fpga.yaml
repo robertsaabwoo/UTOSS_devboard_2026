@@ -16,6 +16,12 @@ nets:
     logic_level_v: 3.3
     standard: LVCMOS33
     recommended_operating_range_v: [3.135, 3.465]   # Xilinx DS181, 7 Series FPGAs
+    electrical:
+      role: driver
+      drive:
+        voh_min_v: 2.4      # LVCMOS33 guaranteed output-high floor
+        voh_max_v: 3.465    # worst-case high swing, ties to recommended_operating_range_v max
+        vol_max_v: 0.4
     notes: >
       ALL header GPIO on the core board is fixed at 3.3V logic — the core
       board sets its own bank voltage internally. Anything the carrier wires
@@ -50,3 +56,8 @@ constraints:
   - no_hot_plug: "Do not seat/remove the core board while the carrier is powered."
   - keying: "Add a silkscreen polarity/keying mark — reversed insertion on a 2x64 header is destructive."
   - standoff_height: "Confirm core board connector mating height for mechanical clearance."
+
+ci:
+  logic_checker: scripts/check_logic_spec.py
+  rtl: rtl/fpga
+  rtl_tests: rtl_tests/fpga

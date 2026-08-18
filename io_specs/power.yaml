@@ -55,8 +55,33 @@ constraints:
   - single_continuous_ground_plane: true
   - star_ground_at_input_jack: true
 
+# Declarative sweep axes for CI verification. Each axis is either a
+# start/stop/step range or an explicit `values:` list (e.g. temperature
+# corners) -- never both. `axes[].id` must match a {{id}} placeholder in
+# `testbench_template`; adding a new axis (or a new sweep entirely) is a
+# YAML + .cir.tmpl edit, no changes needed to scripts/run_power_sweep.py.
+sweeps:
+  - name: line_and_load
+    testbench_template: spice/power/testbench.cir.tmpl
+    axes:
+      - id: vin
+        description: 12V input line variation across VIN_12V's own spec tolerance
+        start: 11.4
+        stop: 12.6
+        step: 0.4
+      - id: rload5
+        description: "+5V rail load sweep, full 3.0A load down to light 0.5A load"
+        start: 1.667
+        stop: 10.0
+        step: 2.0
+    assert_nets:
+      - node: PLUS5V
+        net: +5V
+      - node: PLUS3V3
+        net: +3V3
+
 ci:
   schematic: hardware/devboard.kicad_sch
-  spice_testbench: spice/power/testbench.cir
+  spice_testbench: spice/power/testbench.cir.tmpl
   spice_model: spice/power/models.lib
-  checker: scripts/check_power_spec.py
+  checker: scripts/run_power_sweep.py

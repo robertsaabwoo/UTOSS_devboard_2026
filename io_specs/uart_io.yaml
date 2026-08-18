@@ -8,11 +8,20 @@ nets:
     type: rail
     source: power.+3V3
     nominal_v: 3.3
+    min_v: 3.135   # bridge IC's accepted 3.3V input tolerance (typical USB-UART bridge datasheet)
+    max_v: 3.465
 
   - name: UART_FPGA
     type: logic
+    source: fpga.GPIO_BANK
     logic_level_v: 3.3
     standard: LVCMOS33
+    electrical:
+      role: receiver
+      require:
+        vih_min_v: 2.0      # LVCMOS33 guaranteed input-high threshold
+        vil_max_v: 0.8
+      absolute_max_v: 3.6   # bridge IC's own absolute max input rating
     notes: >
       Bridge IC must be a 3.3V-native I/O variant (e.g. FTDI FT232RL,
       Silicon Labs CP2102N in 3.3V mode) so it connects directly to the
@@ -32,3 +41,6 @@ interfaces:
 constraints:
   - esd_protection: "TVS diode array required on USB D+/D- lines."
   - shared_ground: "Common ground plane with power and fpga submodules — no isolated/split ground."
+
+ci:
+  logic_checker: scripts/check_logic_spec.py
