@@ -1,12 +1,12 @@
-Power submodule regulation testbench
+Power submodule regulation testbench (generated per sweep point)
 .include models.lib
 
-* 12V input source
-V1 VIN_12V GND DC 12
+* 12V input source (swept)
+V1 VIN_12V GND DC {{vin}}
 
-* U1: 12V -> 5V, loaded at 3.0A min spec (5V / 1.667ohm = 3.0A)
+* U1: 12V -> 5V, output loaded via swept Rload5
 X1 VIN_12V GND PLUS5V REG PARAMS: VSET=5.0 RS=0.005
-Rload5 PLUS5V GND 1.667
+Rload5 PLUS5V GND {{rload5}}
 
 * U2: 5V -> 3.3V, loaded at 0.5A min spec (3.3V / 6.6ohm = 0.5A)
 X2 PLUS5V GND PLUS3V3 REG PARAMS: VSET=3.3 RS=0.02
