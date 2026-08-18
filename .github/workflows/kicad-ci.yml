@@ -21,33 +21,47 @@ jobs:
 
       - name: Determine if this is a full-board gate (PR into main, or push to main)
         id: gate
+        # Context values go through env, not direct ${{ }} interpolation into the
+        # script body -- a branch name containing shell metacharacters would
+        # otherwise be executed here.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          REF: ${{ github.ref }}
         run: |
-          if { [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.base_ref }}" = "main" ]; } \
-             || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          if { [ "$EVENT_NAME" = "pull_request" ] && [ "$BASE_REF" = "main" ]; } \
+             || [ "$REF" = "refs/heads/main" ]; then
             echo "run_all=true" >> "$GITHUB_OUTPUT"
           else
             echo "run_all=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # No explicit `base:` -- the action then diffs against the repository
+      # default branch (main). Diffing against github.event.before instead
+      # would only see the most recent push, so a module changed in an earlier
+      # commit on the same branch would stop being re-checked on later pushes.
+      # It also breaks on a branch's first push, where `before` is the null SHA.
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.event.before }}
           filters: |
             power:
               - 'hardware/devboard.kicad_sch'
               - 'io_specs/power.yaml'
               - 'spice/power/**'
               - 'scripts/run_power_sweep.py'
+            # check_logic_spec.py walks the whole cross-module graph, so any
+            # io_specs change can flip a logic result for any module -- these
+            # filters watch io_specs/** rather than just their own spec file.
             fpga:
               - 'hardware/devboard.kicad_sch'
-              - 'io_specs/fpga.yaml'
+              - 'io_specs/**'
               - 'scripts/check_logic_spec.py'
               - 'rtl/fpga/**'
               - 'rtl_tests/fpga/**'
             uart_io:
               - 'hardware/devboard.kicad_sch'
-              - 'io_specs/uart_io.yaml'
+              - 'io_specs/**'
               - 'scripts/check_logic_spec.py'
 
   power-erc:
@@ -143,7 +157,15 @@ jobs:
 
       - name: Run cocotb testbench (reg_handshake)
         working-directory: rtl_tests/fpga
-        run: make SIM=icarus
+        run: |
+          rm -f results.xml
+          make SIM=icarus
+
+      # `make` above exits 0 even when a testcase fails, so it cannot be the
+      # gate on its own -- results.xml is the source of truth.
+      - name: Check cocotb results
+        if: always()
+        run: python3 scripts/check_cocotb_results.py rtl_tests/fpga/results.xml
 
       - name: Upload cocotb results
         if: always()
@@ -151,3 +173,4 @@ jobs:
         with:
           name: fpga-rtl-results
           path: rtl_tests/fpga/results.xml
+          if-no-files-found: warn
