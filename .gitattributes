@@ -1,0 +1,21 @@
+# CI runs on Linux. A file committed with CRLF from a Windows checkout will
+# break there in confusing ways -- a CRLF Makefile fails `make` outright, and
+# CRLF is not always safe through ngspice/iverilog. Pin the toolchain-critical
+# text files to LF regardless of a contributor's core.autocrlf setting.
+*.py        text eol=lf
+*.sh        text eol=lf
+Makefile    text eol=lf
+*.mk        text eol=lf
+*.v         text eol=lf
+*.sv        text eol=lf
+*.cir       text eol=lf
+*.tmpl      text eol=lf
+*.lib       text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# KiCad files are text but tool-managed -- keep them LF so diffs stay readable
+# and don't churn between platforms.
+*.kicad_sch text eol=lf
+*.kicad_pcb text eol=lf
+*.kicad_pro text eol=lf
