@@ -27,11 +27,48 @@ PLACEHOLDER_RE = re.compile(r"\{\{(\w+)\}\}")
 
 
 def axis_values(axis: dict) -> list:
+    """Values for one axis: an explicit `values:` list, or a start/stop/step ramp.
+
+    The ramp includes `start`, and includes `stop` only when `step` divides the
+    span evenly -- otherwise it stops at the last whole step before `stop`
+    (e.g. 1.667..10.0 by 2.0 ends at 9.667).
+    """
     if "values" in axis:
         return [float(v) for v in axis["values"]]
+
     start, stop, step = axis["start"], axis["stop"], axis["step"]
-    n_steps = round((stop - start) / step)
+    if step == 0:
+        raise ValueError(f"axis '{axis['id']}': step must be non-zero")
+    if (stop - start) / step < 0:
+        raise ValueError(
+            f"axis '{axis['id']}': step {step} moves away from stop "
+            f"(start={start}, stop={stop})"
+        )
+    n_steps = int((stop - start) / step + 1e-9)
     return [round(start + i * step, 10) for i in range(n_steps + 1)]
+
+
+def validate_template(template_text: str, axis_ids: list, sweep_name: str) -> list:
+    """Placeholders in the template and declared axis ids must correspond 1:1.
+
+    Catches both directions of a config typo: a {{placeholder}} with no axis
+    behind it (would render a literal brace into the netlist), and an axis
+    that is declared -- and so multiplies the point count -- but never
+    substituted anywhere, i.e. a silent no-op sweep dimension.
+    """
+    placeholders = set(PLACEHOLDER_RE.findall(template_text))
+    declared = set(axis_ids)
+    failures = []
+    for missing in sorted(placeholders - declared):
+        failures.append(
+            f"sweep '{sweep_name}': template references {{{{{missing}}}}} but no axis declares id '{missing}'"
+        )
+    for unused in sorted(declared - placeholders):
+        failures.append(
+            f"sweep '{sweep_name}': axis '{unused}' is declared but never referenced "
+            f"as {{{{{unused}}}}} in the template — it would silently multiply run time without varying anything"
+        )
+    return failures
 
 
 def render(template_text: str, point: dict) -> str:
@@ -79,7 +116,18 @@ def run_sweep(sweep: dict, nets_by_name: dict) -> list:
 
     axes = sweep["axes"]
     axis_ids = [a["id"] for a in axes]
-    value_lists = [axis_values(a) for a in axes]
+
+    # Fail the whole sweep up front on a bad config rather than emitting the
+    # same render error once per point.
+    config_failures = validate_template(template_text, axis_ids, sweep["name"])
+    if config_failures:
+        return config_failures
+
+    try:
+        value_lists = [axis_values(a) for a in axes]
+    except ValueError as exc:
+        return [f"sweep '{sweep['name']}': {exc}"]
+
     n_points = 1
     for vl in value_lists:
         n_points *= len(vl)
@@ -88,12 +136,7 @@ def run_sweep(sweep: dict, nets_by_name: dict) -> list:
     for combo in itertools.product(*value_lists):
         point = dict(zip(axis_ids, combo))
         point_desc = ", ".join(f"{k}={v}" for k, v in point.items())
-
-        try:
-            rendered = render(template_text, point)
-        except KeyError as exc:
-            failures.append(f"[{point_desc}] template render failed: {exc}")
-            continue
+        rendered = render(template_text, point)
 
         with tempfile.NamedTemporaryFile(
             "w", dir=template_path.parent, prefix="tmp", suffix=".cir", delete=False
