@@ -6,8 +6,54 @@ on:
     branches: [main]
 
 jobs:
-  erc:
-    name: Schematic ERC
+  changes:
+    name: Detect changed modules
+    runs-on: ubuntu-latest
+    outputs:
+      power: ${{ steps.filter.outputs.power }}
+      fpga: ${{ steps.filter.outputs.fpga }}
+      uart_io: ${{ steps.filter.outputs.uart_io }}
+      run_all: ${{ steps.gate.outputs.run_all }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # paths-filter needs history to diff against base/before
+
+      - name: Determine if this is a full-board gate (PR into main, or push to main)
+        id: gate
+        run: |
+          if { [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.base_ref }}" = "main" ]; } \
+             || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "run_all=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_all=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.event.before }}
+          filters: |
+            power:
+              - 'hardware/devboard.kicad_sch'
+              - 'io_specs/power.yaml'
+              - 'spice/power/**'
+              - 'scripts/run_power_sweep.py'
+            fpga:
+              - 'hardware/devboard.kicad_sch'
+              - 'io_specs/fpga.yaml'
+              - 'scripts/check_logic_spec.py'
+              - 'rtl/fpga/**'
+              - 'rtl_tests/fpga/**'
+            uart_io:
+              - 'hardware/devboard.kicad_sch'
+              - 'io_specs/uart_io.yaml'
+              - 'scripts/check_logic_spec.py'
+
+  power-erc:
+    name: "power / Schematic ERC"
+    needs: changes
+    if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.power == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,8 +73,10 @@ jobs:
           name: erc-report
           path: erc_out/erc.json
 
-  spice-verify:
-    name: Power rail SPICE verification
+  power-spice:
+    name: "power / SPICE sweep verification"
+    needs: changes
+    if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.power == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,5 +89,65 @@ jobs:
       - name: Install Python deps
         run: pip install pyyaml
 
-      - name: Check power rails against io_specs/power.yaml
-        run: python3 scripts/check_power_spec.py
+      - name: Run power rail sweeps against io_specs/power.yaml
+        run: python3 scripts/run_power_sweep.py
+
+  fpga-logic:
+    name: "fpga / Logic-level cross-check"
+    needs: changes
+    if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.fpga == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python deps
+        run: pip install pyyaml
+
+      - name: Check fpga electrical/logic-level cross-references
+        run: python3 scripts/check_logic_spec.py --module fpga
+
+  uart_io-logic:
+    name: "uart_io / Logic-level cross-check"
+    needs: changes
+    if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.uart_io == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python deps
+        run: pip install pyyaml
+
+      - name: Check uart_io electrical/logic-level cross-references
+        run: python3 scripts/check_logic_spec.py --module uart_io
+
+  fpga-rtl:
+    name: "fpga / cocotb RTL sim"
+    needs: changes
+    if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.fpga == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Icarus Verilog
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install cocotb
+        run: pip install "cocotb==1.9.*"
+
+      - name: Run cocotb testbench (reg_handshake)
+        working-directory: rtl_tests/fpga
+        run: make SIM=icarus
+
+      - name: Upload cocotb results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fpga-rtl-results
+          path: rtl_tests/fpga/results.xml
