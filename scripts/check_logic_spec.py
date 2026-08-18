@@ -18,6 +18,11 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 IO_SPECS_DIR = ROOT / "io_specs"
 
+# Net types checked as a power envelope (source's worst-case excursion must
+# sit inside what the sink accepts). `input` is a board/module power entry
+# point -- electrically the same check as a `rail`.
+RAIL_TYPES = {"rail", "input"}
+
 
 def load_all_specs() -> dict:
     specs = {}
@@ -116,10 +121,19 @@ def main() -> None:
             if args.module and args.module not in (module, source_module):
                 continue
 
-            if net.get("type") == "rail":
+            net_type = net.get("type")
+            if net_type in RAIL_TYPES:
                 all_failures.extend(check_rail_edge(module, net, source_module, source_net))
-            elif net.get("type") == "logic":
+            elif net_type == "logic":
                 all_failures.extend(check_logic_edge(module, net, source_module, source_net))
+            else:
+                # Never silently skip a declared cross-module edge -- an
+                # unrecognized type means the link goes unverified, which is
+                # exactly the failure this checker exists to prevent.
+                all_failures.append(
+                    f"{module}.{net['name']}: has source '{source_ref}' but unrecognized "
+                    f"type '{net_type}' — expected one of {sorted(RAIL_TYPES | {'logic'})}"
+                )
 
     if all_failures:
         print("LOGIC/ELECTRICAL SPEC CHECK FAILED:")

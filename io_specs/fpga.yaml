@@ -9,6 +9,8 @@ nets:
     type: input
     source: power.+5V
     nominal_v: 5.0
+    min_v: 4.75   # PLACEHOLDER ±5% — see open_items/core-5v-input-tolerance
+    max_v: 5.25
     notes: Delivered from the Power submodule to the core board's 5V header pin(s).
 
   - name: GPIO_BANK
@@ -45,6 +47,16 @@ open_items:
       carrier? This determines whether the carrier needs its own JTAG
       header. MUST resolve before finalizing the fpga sheet — verify from
       the vendor manuals (see owner_doc above) or the board silkscreen/schematic.
+  - id: core-5v-input-tolerance
+    status: UNCONFIRMED
+    question: >
+      CORE_5V_IN's min_v/max_v (4.75-5.25V) is a placeholder ±5% band, NOT a
+      transcribed vendor figure — the QMTECH manuals were not available when
+      this was written. scripts/check_logic_spec.py actively gates on these
+      numbers (it verifies power.+5V's 4.9-5.1V output sits inside this band),
+      so a real datasheet value must replace them before this check means
+      anything. If the core board is tighter than ±5%, the power spec may need
+      to tighten to match.
   - id: config-mode-pins
     status: UNCONFIRMED
     question: >
