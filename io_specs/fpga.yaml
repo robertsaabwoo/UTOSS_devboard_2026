@@ -1,73 +1,255 @@
-# FPGA submodule — carrier-side interface to the purchased QMTECH XC7A-series
-# Artix-7 core board (this carrier does NOT place the raw BGA chip itself).
+# FPGA submodule — Lattice ECP5 LFE5U-25F-7TG144C, placed directly on this
+# board (bare TQFP-144, NOT a purchased core board).
+#
+# Role: optical payload imaging pipeline. Receives a DCMI-style parallel video
+# bus from the camera sensor, controls the camera over UART, compresses frames
+# to cut downlink volume, and is supervised by an on-board CPU.
+#
+# Every voltage below is transcribed from the ECP5 and ECP5-5G Family Data
+# Sheet, FPGA-DS-02012. Table numbers are cited inline. Anything NOT from the
+# datasheet is marked PLACEHOLDER and has a matching entry in open_items.
 block: fpga
-owner_doc: https://github.com/ChinaQMTECH/QMTECH_XC7A75T-100T-200T_Core_Board  # vendor manuals, not vendored into this repo
-chip_family: Artix-7 (XC7A75T / XC7A100T / XC7A200T, core-board-mounted)
+owner_doc: https://www.latticesemi.com/products/fpgaandcpld/ecp5   # FPGA-DS-02012, not vendored into this repo
+part_number: LFE5U-25F-7TG144C
+chip_family: ECP5 (LFE5U — no SERDES)
+package: TQFP-144, 20x20mm, 0.5mm pitch
+speed_grade: -7
+temperature_grade: Commercial (TJ 0 to 85 C)
+resources:
+  luts: 24000
+  block_ram_bits: 1032192      # ~126 KB — see power.yaml open_items/frame-buffer-memory
+  user_io: 98
 
 nets:
-  - name: CORE_5V_IN
+  # --- Supply rails -------------------------------------------------------
+  - name: VCC
     type: input
-    source: power.+5V
-    nominal_v: 5.0
-    min_v: 4.75   # PLACEHOLDER ±5% — see open_items/core-5v-input-tolerance
-    max_v: 5.25
-    notes: Delivered from the Power submodule to the core board's 5V header pin(s).
+    source: power.+1V1
+    nominal_v: 1.1
+    min_v: 1.045
+    max_v: 1.155
+    absolute_max_v: 1.32
+    domain: gated
+    source_ref: "FPGA-DS-02012 Table 3.2 (recommended), Table 3.1 (absolute max)"
+    notes: Core supply. Static ICC 77 mA typ (Table 3.8, TJ=85C, 0 Hz, outputs tri-stated).
 
-  - name: GPIO_BANK
+  - name: VCCAUX
+    type: input
+    source: power.+2V5
+    nominal_v: 2.5
+    min_v: 2.375
+    max_v: 2.625
+    absolute_max_v: 2.75
+    domain: gated
+    source_ref: "FPGA-DS-02012 Table 3.2, Table 3.1"
+    notes: >
+      Auxiliary supply — powers PLLs and the differential input comparators.
+      Static ICCAUX 16 mA typ (Table 3.8). Ramp ceiling of 30 mV/us between
+      0V and 3V (Table 3.2 note 4) is enforced in power.yaml rail_rules.
+
+  - name: VCCIO_BANK8
+    type: input
+    source: power.+3V3_FPGA
+    nominal_v: 3.3
+    min_v: 3.135
+    max_v: 3.465
+    absolute_max_v: 3.63
+    domain: gated
+    source_ref: "FPGA-DS-02012 Table 3.11 (LVCMOS33 VCCIO window), Table 3.1"
+    notes: >
+      Bank 8 is the shared sysCONFIG + JTAG bank (13 I/O). It is the ONLY
+      VCCIO with Power-On-Reset ramp-up detection (Table 3.4), and POR is not
+      released until VCC, VCCAUX and VCCIO8 are all above their trip points
+      (section 3.5) — which is why power.yaml sequences this rail first.
+      3.3V chosen to match the supervisor CPU and a standard JTAG pod.
+
+  - name: VCCIO_CAM
+    type: input
+    source: power.+3V3_FPGA
+    nominal_v: 3.3
+    min_v: 3.135
+    max_v: 3.465
+    absolute_max_v: 3.63
+    domain: gated
+    source_ref: "FPGA-DS-02012 Table 3.11, Table 3.1"
+    notes: >
+      PLACEHOLDER VOLTAGE. Whichever bank carries the DCMI bus must be set to
+      the camera's I/O voltage, not to a voltage we picked. 3.3V is a
+      defensible default and keeps this rail shared with +3V3_FPGA, but if the
+      camera turns out to be a 1.8V-I/O part this becomes a separate rail and
+      the LVCMOS33 edge in camera.yaml becomes an LVCMOS18 edge. VCCIO is
+      legal anywhere in 1.14-3.465V (Table 3.2), so the part does not constrain
+      the choice — the camera does.
+      See power.yaml open_items/camera-part-selection.
+
+  # --- Logic interfaces ---------------------------------------------------
+  - name: DCMI_RX
     type: logic
+    role_note: FPGA is the RECEIVER of the camera's parallel video bus.
+    source: camera.DCMI_OUT
+    domain: gated
     logic_level_v: 3.3
     standard: LVCMOS33
-    recommended_operating_range_v: [3.135, 3.465]   # Xilinx DS181, 7 Series FPGAs
+    bus:
+      signals: [PCLK, HSYNC, VSYNC, "D[13:0]"]
+      width_bits: 14      # PLACEHOLDER — camera dependent, may be 8/10/12/14
+      pin_count: 17
+    electrical:
+      role: receiver
+      require:
+        vih_min_v: 2.0
+        vil_max_v: 0.8
+      absolute_max_v: 3.6
+    source_ref: "FPGA-DS-02012 Table 3.12 (LVCMOS33 VIH/VIL); Table 3.1 caps applied input transients at 3.63V"
+    notes: >
+      Source-synchronous: the camera drives PCLK alongside the data. PCLK MUST
+      land on a clock-capable input pin in the same bank as the data, or the
+      capture will not meet setup/hold across the bus. Pin assignment is not
+      settled — see open_items/bank-pin-assignment.
+
+  - name: UART_CAM
+    type: logic
+    role_note: FPGA drives camera control commands.
+    domain: gated
+    logic_level_v: 3.3
+    standard: LVCMOS33
     electrical:
       role: driver
       drive:
-        voh_min_v: 2.4      # LVCMOS33 guaranteed output-high floor
-        voh_max_v: 3.465    # worst-case high swing, ties to recommended_operating_range_v max
+        voh_min_v: 2.8      # VCCIO - 0.4 at our rail minimum of 3.2V
+        voh_max_v: 3.465
         vol_max_v: 0.4
+        drive_strength_ma: 4
+    source_ref: "FPGA-DS-02012 Table 3.12 (LVCMOS33 VOH = VCCIO-0.4, VOL = 0.4, IOH/IOL 4/8/12/16 mA)"
     notes: >
-      ALL header GPIO on the core board is fixed at 3.3V logic — the core
-      board sets its own bank voltage internally. Anything the carrier wires
-      to these pins (UART bridge, buttons, LEDs) MUST be 3.3V logic. Do not
-      assume 5V tolerance.
+      4 mA drive selected deliberately: UART runs at kilobaud into a single
+      high-impedance receiver, so the default higher drive strengths only add
+      switching current and edge-rate EMI for no benefit.
 
-interfaces:
-  - name: HEADER_A
-    connector: 2x64, 2.54mm pitch    # per QMTECH XC7A100T core board headers
-    notes: Pin-out must be transcribed from the QMTECH manual/schematic before layout.
-  - name: HEADER_B
-    connector: 2x64, 2.54mm pitch
+  - name: CONSOLE_TX
+    type: logic
+    role_note: FPGA drives the ground-support USB-UART console bridge.
+    domain: gated
+    logic_level_v: 3.3
+    standard: LVCMOS33
+    electrical:
+      role: driver
+      drive:
+        voh_min_v: 2.8
+        voh_max_v: 3.465
+        vol_max_v: 0.4
+        drive_strength_ma: 4
+    source_ref: "FPGA-DS-02012 Table 3.12"
+
+  - name: CFG_RX
+    type: logic
+    role_note: >
+      FPGA receives its bitstream from the supervisor CPU (slave configuration)
+      and exposes PROGRAMN / INITN / DONE back to it.
+    source: supervisor.FPGA_CFG
+    domain: gated
+    logic_level_v: 3.3
+    standard: LVCMOS33
+    electrical:
+      role: receiver
+      require:
+        vih_min_v: 2.0
+        vil_max_v: 0.8
+      absolute_max_v: 3.6
+      isolation: supervisor_tristates_when_gated
+    source_ref: "FPGA-DS-02012 Table 3.12"
+    notes: >
+      DOMAIN CROSSING. The supervisor runs on always-on +3V3_SYS; these pins
+      sit on gated +3V3_FPGA. With the FPGA unpowered, any pin the supervisor
+      holds high forward-biases the FPGA's ESD clamp and back-powers VCCIO
+      through it — which both defeats power gating and violates the bring-up
+      sequence. The supervisor MUST tri-state this group before deasserting
+      FPGA_PWR_EN. Enforced by the domain-crossing check in
+      scripts/check_logic_spec.py.
+
+  - name: CFG_STATUS
+    type: logic
+    role_note: FPGA drives DONE / INITN back to the supervisor.
+    domain: gated
+    logic_level_v: 3.3
+    standard: LVCMOS33
+    electrical:
+      role: driver
+      drive:
+        voh_min_v: 2.8
+        voh_max_v: 3.465
+        vol_max_v: 0.4
+        drive_strength_ma: 4
+    source_ref: "FPGA-DS-02012 Table 3.12"
+    notes: >
+      Open-drain with an external pull-up on the SUPERVISOR side of the
+      domain boundary, not the FPGA side — a pull-up to +3V3_FPGA reads as a
+      valid DONE while the FPGA is simply unpowered, which is exactly the
+      false-positive that would let the supervisor conclude configuration
+      succeeded on a dead FPGA.
+
+banks:
+  # ECP5 exposes 7 independent VCCIO domains in this package (banks 0,1,2,3,6,7
+  # and the shared config bank 8; bank 4 has no I/O below the 554-ball parts).
+  # Each is a separate rail decision and a separate power/EMI decision.
+  - id: 8
+    function: sysCONFIG + JTAG (shared)
+    vccio_net: VCCIO_BANK8
+    io_count: 13
+    source_ref: "FPGA-DS-02012 section 4.3.2 pin summary"
+  - id: [0, 1, 2, 3, 6, 7]
+    function: General purpose — DCMI capture, camera UART, console, spare
+    vccio_net: VCCIO_CAM
+    io_count: null   # PLACEHOLDER — see open_items/bank-pin-assignment
+    notes: >
+      Grouping all six general banks onto one rail is a simplification, not a
+      requirement. Splitting the DCMI bank onto its own lower VCCIO is the main
+      remaining I/O power lever if the budget gets tight.
 
 open_items:
-  - id: jtag-programming-path
+  - id: bank-pin-assignment
     status: UNCONFIRMED
     question: >
-      Does the QMTECH core board have onboard USB-JTAG, or does it expose
-      raw TCK/TMS/TDI/TDO/TRST pins requiring an external programmer
-      (e.g. Xilinx Platform Cable / Digilent JTAG-HS) wired through the
-      carrier? This determines whether the carrier needs its own JTAG
-      header. MUST resolve before finalizing the fpga sheet — verify from
-      the vendor manuals (see owner_doc above) or the board silkscreen/schematic.
-  - id: core-5v-input-tolerance
+      Per-bank I/O counts for the TQFP-144 package could not be transcribed
+      from the datasheet's pin summary table (the 144-TQFP column did not
+      survive text extraction), and the DCMI bus needs 17 contiguous pins in a
+      single bank with PCLK on a clock-capable input. Pull the official ECP5
+      pinout CSV for LFE5U-25F TQFP-144 and fill in `banks[].io_count` plus a
+      concrete pin map before layout. MUST resolve before the fpga sheet is
+      finalized.
+
+  - id: dcmi-bus-parameters
     status: UNCONFIRMED
     question: >
-      CORE_5V_IN's min_v/max_v (4.75-5.25V) is a placeholder ±5% band, NOT a
-      transcribed vendor figure — the QMTECH manuals were not available when
-      this was written. scripts/check_logic_spec.py actively gates on these
-      numbers (it verifies power.+5V's 4.9-5.1V output sits inside this band),
-      so a real datasheet value must replace them before this check means
-      anything. If the core board is tighter than ±5%, the power spec may need
-      to tighten to match.
-  - id: config-mode-pins
+      Data width (8/10/12/14), HSYNC/VSYNC polarity, PCLK frequency and
+      whether data is valid on rising or falling PCLK. All four are camera
+      properties and all four change the capture RTL. width_bits: 14 above is
+      a placeholder chosen as the worst case for pin budgeting.
+
+  - id: seu-mitigation
     status: UNCONFIRMED
     question: >
-      Are PROG_B / DONE / INIT_B exposed on the headers? If so, recommend
-      wiring PROG_B to a carrier pushbutton for reconfig without a full
-      power cycle.
+      ECP5 is SRAM-configured, so a single-event upset in the configuration
+      memory can silently corrupt the design — a known hazard for SRAM FPGAs on
+      orbit. The supervisor is already wired for slave configuration, so it is
+      the natural place to periodically read back and scrub, or to watchdog the
+      FPGA and force a reconfigure. Decide whether that is in scope, and
+      whether the mission's radiation environment makes it mandatory.
+      This is a mission-assurance question, not an electrical one, but it
+      constrains the supervisor firmware and should not be discovered late.
 
 constraints:
-  - no_hot_plug: "Do not seat/remove the core board while the carrier is powered."
-  - keying: "Add a silkscreen polarity/keying mark — reversed insertion on a 2x64 header is destructive."
-  - standoff_height: "Confirm core board connector mating height for mechanical clearance."
+  - decoupling: >
+      Bare BGA-class die on a TQFP: each VCC, VCCAUX and VCCIO pin needs local
+      decoupling. Follow the ECP5 hardware checklist (FPGA-TN-02033) rather
+      than improvising — this is the most common cause of a board that
+      configures but will not run reliably.
+  - no_5v_on_io: >
+      Absolute maximum on any I/O is 3.63V including transients (Table 3.1).
+      Nothing 5V-tolerant here. Any 5V peripheral needs a level shifter.
+  - power_gating_all_or_nothing: >
+      Do not power VCCIO while VCC and VCCAUX are off — see
+      power.yaml constraints/gated_rails_switch_together.
 
 ci:
   logic_checker: scripts/check_logic_spec.py

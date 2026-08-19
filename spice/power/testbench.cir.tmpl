@@ -1,20 +1,38 @@
-Power submodule regulation testbench (generated per sweep point)
+Power tree regulation testbench (generated per sweep point)
 .include models.lib
 
 * 12V input source (swept)
 V1 VIN_12V GND DC {{vin}}
 
-* U1: 12V -> 5V, output loaded via swept Rload5
-X1 VIN_12V GND PLUS5V REG PARAMS: VSET=5.0 RS=0.005
-Rload5 PLUS5V GND {{rload5}}
+* U1: 12V -> 5V intermediate. Everything else hangs off this node, so its
+* load is the sum of all downstream conversion, reflected through EFF.
+X1 VIN_12V GND PLUS5V REG PARAMS: VSET=5.0 RS=0.005 LINEREG=0.005 EFF=0.90
+* Camera module, switched pass-through of +5V (200mA budgeted)
+Rload5 PLUS5V GND 25.0
 
-* U2: 5V -> 3.3V, loaded at 0.5A min spec (3.3V / 6.6ohm = 0.5A)
-X2 PLUS5V GND PLUS3V3 REG PARAMS: VSET=3.3 RS=0.02
-Rload3 PLUS3V3 GND 6.6
+* U2: 5V -> 3.3V always-on system rail (supervisor + housekeeping, 50mA)
+X2 PLUS5V GND PLUS3V3S REG PARAMS: VSET=3.3 RS=0.02 EFF=0.88
+Rload3s PLUS3V3S GND 66.0
+
+* U3: 5V -> 3.3V gated FPGA VCCIO rail (50mA budgeted)
+X3 PLUS5V GND PLUS3V3F REG PARAMS: VSET=3.3 RS=0.02 EFF=0.90
+Rload3f PLUS3V3F GND 66.0
+
+* U4: 5V -> 2.5V VCCAUX. LDO, so EFF is Vout/Vin (25mA budgeted).
+X4 PLUS5V GND PLUS2V5 REG PARAMS: VSET=2.5 RS=0.05 EFF=0.50
+Rload2v5 PLUS2V5 GND 100.0
+
+* U5: 5V -> 1.1V VCC core, load swept from the 250mA budgeted worst case
+* (4.4 ohm) out to the 77mA static-only floor (14.3 ohm).
+X5 PLUS5V GND PLUS1V1 REG PARAMS: VSET=1.1 RS=0.02 EFF=0.85
+Rloadcore PLUS1V1 GND {{rload_core}}
 
 .control
 op
 print v(PLUS5V)
-print v(PLUS3V3)
+print v(PLUS3V3S)
+print v(PLUS3V3F)
+print v(PLUS2V5)
+print v(PLUS1V1)
 .endc
 .end

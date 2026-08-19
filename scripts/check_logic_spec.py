@@ -23,6 +23,11 @@ IO_SPECS_DIR = ROOT / "io_specs"
 # point -- electrically the same check as a `rail`.
 RAIL_TYPES = {"rail", "input"}
 
+# Power domains. `gated` nets lose their supply when the supervisor drops
+# FPGA_PWR_EN; `always_on` nets do not. Any logic edge between the two is a
+# back-powering hazard unless it declares how it is isolated.
+DOMAINS = {"gated", "always_on"}
+
 
 def load_all_specs() -> dict:
     specs = {}
@@ -42,9 +47,49 @@ def net_lookup(specs: dict, module: str, net_name: str):
     return None
 
 
+def check_domains(prefix: str, sink_net: dict, source_net: dict) -> tuple:
+    """Validate both ends declare a known domain. Returns (failures, crosses).
+
+    `crosses` is None when the domains could not be determined, so callers can
+    tell "same domain" apart from "we don't know" and avoid asserting an
+    isolation requirement on unverifiable data.
+    """
+    failures = []
+    sink_domain = sink_net.get("domain")
+    source_domain = source_net.get("domain")
+
+    for label, domain in (("sink", sink_domain), ("source", source_domain)):
+        if domain is None:
+            failures.append(
+                f"{prefix}: {label} net declares no `domain` — cannot tell whether this "
+                f"edge crosses a power-gating boundary. Declare one of {sorted(DOMAINS)}."
+            )
+        elif domain not in DOMAINS:
+            failures.append(
+                f"{prefix}: {label} net has unrecognized domain '{domain}' — "
+                f"expected one of {sorted(DOMAINS)}"
+            )
+
+    if failures:
+        return failures, None
+    return failures, sink_domain != source_domain
+
+
 def check_rail_edge(sink_module: str, sink_net: dict, source_module: str, source_net: dict) -> list:
     failures = []
     prefix = f"{sink_module}.{sink_net['name']} (source {source_module}.{source_net['name']})"
+
+    domain_failures, crosses = check_domains(prefix, sink_net, source_net)
+    failures.extend(domain_failures)
+    if crosses:
+        # A rail edge is a direct connection -- there is no isolation to
+        # declare. Different domains here means a consumer is wired to a rail
+        # that does not switch with it, which silently breaks power gating.
+        failures.append(
+            f"{prefix}: rail edge crosses a power domain "
+            f"({source_net.get('domain')} -> {sink_net.get('domain')}) — a consumer cannot be "
+            f"in a different gating domain than the rail feeding it"
+        )
 
     sink_min, sink_max = sink_net.get("min_v"), sink_net.get("max_v")
     if sink_min is None or sink_max is None:
@@ -72,6 +117,17 @@ def check_logic_edge(sink_module: str, sink_net: dict, source_module: str, sourc
     source_elec = source_net.get("electrical", {})
     require = sink_elec.get("require")
     drive = source_elec.get("drive")
+
+    domain_failures, crosses = check_domains(prefix, sink_net, source_net)
+    failures.extend(domain_failures)
+    if crosses and not (sink_elec.get("isolation") or source_elec.get("isolation")):
+        failures.append(
+            f"{prefix}: logic edge crosses a power domain "
+            f"({source_net.get('domain')} -> {sink_net.get('domain')}) with no "
+            f"`electrical.isolation` declared on either end — driving a powered-down "
+            f"device back-powers its VCCIO through the ESD clamp, which both defeats "
+            f"power gating and violates bring-up sequencing"
+        )
 
     if require is None:
         failures.append(f"{prefix}: sink net has no electrical.require block — cannot verify logic levels")

@@ -1,0 +1,136 @@
+# Supervisor submodule — always-on CPU sharing this PCB with the FPGA.
+#
+# Two jobs:
+#   1. Power-gate the imaging chain (FPGA_PWR_EN) so the payload's ~125 mW
+#      static floor is only paid while actually imaging.
+#   2. Configure the ECP5 over slave-mode configuration, and re-configure it
+#      if it stops responding. ECP5 is SRAM-based: it holds no bitstream
+#      through a power cycle, so the supervisor IS the boot path.
+#
+# The JTAG header (see interfaces) is the independent fallback for when the
+# supervisor itself is the thing that is broken.
+#
+# STATUS: SKELETON. No part selected — see power.yaml
+# open_items/supervisor-part-selection.
+block: supervisor
+owner_doc: null
+part_number: null   # UNSELECTED
+
+nets:
+  - name: VDD
+    type: input
+    source: power.+3V3_SYS
+    nominal_v: 3.3
+    min_v: 3.0     # PLACEHOLDER — generic 3.3V MCU window
+    max_v: 3.6
+    domain: always_on
+    notes: >
+      Always on. This rail is what makes power gating possible at all: the
+      supervisor has to survive to turn the FPGA back on.
+
+  - name: FPGA_CFG
+    type: logic
+    role_note: >
+      Supervisor drives the ECP5's slave configuration bus (clock, data,
+      PROGRAMN) plus the power-enable line.
+    domain: always_on
+    logic_level_v: 3.3
+    standard: LVCMOS33   # PLACEHOLDER
+    electrical:
+      role: driver
+      drive:
+        voh_min_v: 2.7   # PLACEHOLDER — typical 3.3V MCU push-pull
+        voh_max_v: 3.6
+        vol_max_v: 0.4
+      isolation: tristate_before_gating
+    notes: >
+      DOMAIN CROSSING — always_on driver into a gated receiver. See
+      fpga.CFG_RX for why this must be tri-stated before FPGA_PWR_EN drops.
+
+  - name: FPGA_PWR_EN
+    type: logic
+    role_note: Enables the gated rails (+1V1, +2V5, +3V3_FPGA, CAM_5V).
+    domain: always_on
+    logic_level_v: 3.3
+    standard: LVCMOS33   # PLACEHOLDER
+    electrical:
+      role: driver
+      drive:
+        voh_min_v: 2.7
+        voh_max_v: 3.6
+        vol_max_v: 0.4
+    notes: >
+      Must default to the OFF state on supervisor reset and while the
+      supervisor is itself unprogrammed — a pull-down at the load switch, not
+      a firmware default. An FPGA that powers up because the supervisor
+      crashed is an FPGA drawing 125 mW for the rest of the orbit.
+
+  - name: FPGA_STATUS
+    type: logic
+    role_note: Supervisor reads DONE / INITN back from the FPGA.
+    source: fpga.CFG_STATUS
+    domain: always_on
+    logic_level_v: 3.3
+    standard: LVCMOS33   # PLACEHOLDER
+    electrical:
+      role: receiver
+      require:
+        vih_min_v: 2.0   # PLACEHOLDER
+        vil_max_v: 0.8
+      absolute_max_v: 3.6
+      isolation: pullup_on_always_on_side
+    notes: >
+      DOMAIN CROSSING — gated driver into an always-on receiver. When the FPGA
+      is powered down these pins float, so the supervisor input needs a defined
+      state from the always-on side. Pull the line to the state that means
+      "not configured", never to the state that means "ready".
+
+interfaces:
+  - name: JTAG
+    connector: 2x5 0.1in header (or Tag-Connect footprint to save area)
+    signals: [TCK, TMS, TDI, TDO, GND, VREF]
+    notes: >
+      Independent recovery path. ECP5's TAP is powered from VCCIO8, so the
+      header's VREF pin must reference +3V3_FPGA — a pod referencing the
+      always-on rail would drive the TAP while the FPGA is gated off.
+      Bring the gated rails up manually (or jumper FPGA_PWR_EN) before
+      attaching a pod.
+  - name: CFG_BUS
+    signals:
+      PROGRAMN: "supervisor -> FPGA, forces reconfiguration"
+      INITN: "FPGA -> supervisor, config-memory-clear / error"
+      DONE: "FPGA -> supervisor, configuration complete"
+    notes: >
+      PROGRAMN or INITN held low through power-up is the datasheet-sanctioned
+      escape hatch if the VCCIO8-first bring-up order cannot be met
+      (FPGA-DS-02012 section 3.5). Worth wiring even though power.yaml's
+      sequence does meet the order.
+
+open_items:
+  - id: supervisor-config-mode
+    status: UNCONFIRMED
+    question: >
+      Which ECP5 slave configuration mode — Slave SPI or Slave SERIAL? Sets
+      pin count, bitstream load time (which is dead time on every payload
+      wake-up, so it is a power cost), and how much supervisor flash the
+      bitstream occupies.
+
+  - id: supervisor-holds-bitstream
+    status: UNCONFIRMED
+    question: >
+      Where does the bitstream actually live — supervisor internal flash, an
+      external flash the supervisor reads, or uplinked and cached in RAM?
+      This decides whether the FPGA design is field-updatable on orbit.
+
+constraints:
+  - pwr_en_defaults_off: >
+      FPGA_PWR_EN must be pulled to the disabled state in hardware. See the
+      note on that net.
+  - tristate_before_gating: >
+      Every supervisor pin facing the FPGA must be tri-stated (or driven low)
+      before FPGA_PWR_EN is deasserted, and must stay so until the rails are
+      up. Driving a powered-down FPGA back-powers VCCIO through its ESD
+      clamps, which both defeats the gating and violates bring-up sequencing.
+
+ci:
+  logic_checker: scripts/check_logic_spec.py

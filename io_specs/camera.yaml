@@ -1,0 +1,111 @@
+# Camera submodule — OEM optical imaging sensor module.
+#
+# STATUS: SKELETON. No part has been selected, so nearly every electrical
+# figure here is a PLACEHOLDER. It is checked into CI anyway on purpose: the
+# cross-module checks fail loudly against placeholders that contradict the
+# FPGA's real datasheet limits, which is more useful than an absent file that
+# silently checks nothing. See power.yaml open_items/camera-part-selection.
+block: camera
+owner_doc: null
+part_number: null   # UNSELECTED
+
+nets:
+  - name: VDD
+    type: input
+    source: power.CAM_5V
+    nominal_v: 5.0
+    min_v: 4.75    # PLACEHOLDER — generic +/-5%, not a transcribed figure
+    max_v: 5.25
+    domain: gated
+    notes: >
+      PLACEHOLDER. Many OEM camera modules take 3.3V, not 5V, and several need
+      multiple rails (analog, digital, I/O) with their own sequencing. Replace
+      power.CAM_5V with the real tree once the part is known.
+
+  - name: DCMI_OUT
+    type: logic
+    role_note: Camera drives the parallel video bus into the FPGA.
+    domain: gated
+    logic_level_v: 3.3
+    standard: LVCMOS33   # PLACEHOLDER — 1.8V-I/O sensors are common
+    bus:
+      signals: [PCLK, HSYNC, VSYNC, "D[13:0]"]
+      width_bits: 14     # PLACEHOLDER — worst case, for pin budgeting
+    electrical:
+      role: driver
+      drive:
+        voh_min_v: 2.8   # PLACEHOLDER
+        voh_max_v: 3.465
+        vol_max_v: 0.4
+    notes: >
+      PLACEHOLDER LEVELS. The single most important thing to transcribe from
+      the camera datasheet: if this bus is 1.8V, then voh_min_v drops to
+      roughly 1.4V, which is BELOW the FPGA's LVCMOS33 VIH_min of 2.0V, and
+      the link silently does not work. That failure is exactly what
+      scripts/check_logic_spec.py is here to catch — it will catch it the
+      moment a real number replaces this placeholder, provided the FPGA's
+      VCCIO_CAM bank voltage is updated to match.
+
+  - name: UART_RX
+    type: logic
+    role_note: Camera receives control commands from the FPGA.
+    source: fpga.UART_CAM
+    domain: gated
+    logic_level_v: 3.3
+    standard: LVCMOS33   # PLACEHOLDER
+    electrical:
+      role: receiver
+      require:
+        vih_min_v: 2.0   # PLACEHOLDER
+        vil_max_v: 0.8
+      absolute_max_v: 3.6
+
+interfaces:
+  - name: DCMI
+    signals:
+      PCLK: "camera -> FPGA, source-synchronous pixel clock"
+      HSYNC: "camera -> FPGA, line valid"
+      VSYNC: "camera -> FPGA, frame valid"
+      "D[13:0]": "camera -> FPGA, pixel data"
+    notes: >
+      DCMI is an STM32 peripheral name; from the FPGA side this is just a
+      source-synchronous parallel video bus. Nothing STM32-specific is
+      required to receive it — which is the point of moving capture off the
+      microcontroller.
+  - name: UART_CTRL
+    signals:
+      RXD: "camera RXD <- FPGA TXD"
+      TXD: "camera TXD -> FPGA RXD (if the part reports status)"
+
+open_items:
+  - id: camera-io-voltage
+    status: UNCONFIRMED
+    question: >
+      Is the DCMI bus 3.3V or 1.8V? This sets fpga.VCCIO_CAM, which sets
+      whether the capture bank can share +3V3_FPGA or needs its own rail, which
+      changes both the power tree and the power budget. Highest-leverage
+      unknown in the whole design.
+
+  - id: camera-pclk-rate
+    status: UNCONFIRMED
+    question: >
+      PCLK frequency and pixel format. Drives the capture RTL's timing
+      closure at speed grade -7, the compression core's required throughput,
+      and the dynamic power allowance in power.yaml.
+
+  - id: camera-power-sequencing
+    status: UNCONFIRMED
+    question: >
+      Does the sensor require its own rail ordering, and does it tolerate the
+      FPGA driving its inputs before it is powered? If the FPGA comes up first
+      it will drive UART TX into an unpowered sensor.
+
+constraints:
+  - esd_and_flex: >
+      The sensor typically mates through a flex cable. Treat it as a
+      user-facing connector for ESD purposes and keep the DCMI bus length
+      matched — this is a source-synchronous bus and skew eats setup margin
+      directly.
+
+ci:
+  logic_checker: scripts/check_logic_spec.py
