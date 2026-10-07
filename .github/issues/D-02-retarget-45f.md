@@ -34,6 +34,17 @@ line buffer across bands. The 45F roughly doubles both.
 - [ ] Update `io_specs/fpga.yaml`: `part_number`, `resources.luts`,
       `resources.block_ram_bits`, DSP count, PLL count, and the per-bank I/O
       counts (`open_items/bank-pin-assignment`) for the chosen part.
+- [ ] **Re-run the power budget on 45F static currents.** This is the part of
+      this issue most likely to bite. `io_specs/power.yaml` sources its figures
+      as *"ECP5 Table 3.8 ICC typ, **LFE5U-25F**"* — 77 mA on `+1V1` and 16 mA
+      on `+2V5`. The 45F is a larger die and draws more. As measured today
+      (`docs/STATUS.md`), `payload_active` is already at **2028 mW of the
+      2500 mW allowance, 81 %**, so there is not enough slack to absorb a part
+      change quietly. Transcribe the 45F's ICC and ICCAUX from FPGA-DS-02012,
+      update the `loads` entries and their `source:` strings, and re-run
+      `scripts/check_power_rules.py`.
+      If the active state no longer closes, that is a finding to raise, not a
+      number to relax: the allowance itself came from the client's envelope.
 - [ ] Confirm `resources` and `utilization_ceiling` in `rtl/ecp5_target.yaml`
       line by line against **FPGA-DS-02012 Table 1.1**, and clear
       `open_items/confirm-device-resources`. The figures in there now are
