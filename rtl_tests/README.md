@@ -13,6 +13,17 @@ Everything runs inside the container from [`../docker/`](../docker/README.md),
 which is the same image CI uses. First run builds it (a few minutes); after that
 it is cached.
 
+> **Windows: use `tools\dev.cmd`, not `tools\dev.ps1` directly.** A fresh
+> Windows shell has every PowerShell execution-policy scope set to `Undefined`,
+> which means `Restricted`, so `.	ools\dev.ps1` fails with
+> `UnauthorizedAccess: running scripts is disabled on this system`. The `.cmd`
+> wrapper is not a PowerShell script, so it runs regardless, and it launches
+> `dev.ps1` with a bypass scoped to that one child process — no machine or user
+> setting is changed.
+>
+> In Git Bash or WSL, use `tools/dev` (or `make sim` / `make all`). All three
+> wrappers run the same container.
+
 ```bash
 tools/dev all                      # lint + simulate + synthesise: what CI runs
 tools/dev sim                      # every bench

@@ -26,3 +26,8 @@ tools/dev            text eol=lf
 docker/utoss-versions text eol=lf
 Dockerfile           text eol=lf
 docker/Dockerfile    text eol=lf
+
+# Windows batch entry point: must stay CRLF, a .cmd with LF endings can
+# mis-parse in cmd.exe.
+tools/dev.cmd     text eol=crlf
+*.ps1             text eol=crlf
