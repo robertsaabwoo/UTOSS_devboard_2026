@@ -24,6 +24,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import unicodedata
 
 try:
     import yaml
@@ -86,10 +87,28 @@ class IssueFile:
 
 
 def gh(*args, check=True, capture=True):
+    """Run gh, decoding its output as UTF-8 regardless of the host locale.
+
+    `text=True` alone decodes with the locale encoding, which on Windows is
+    cp1252. gh emits UTF-8, so every em dash in an issue title came back as
+    mojibake ("---" as three bytes read one at a time), the title-match against
+    .github/issues/*.md failed for exactly those issues, and a re-run created
+    duplicates of them while correctly skipping the pure-ASCII ones. That is
+    how this repo briefly acquired 14 duplicate issues.
+
+    errors="replace" rather than strict: a decode error here should degrade the
+    display of one title, not abort a sync half-way through creating issues.
+    """
     command = ["gh"] + list(args)
     return subprocess.run(command, cwd=str(REPO_ROOT), check=check, text=True,
+                          encoding="utf-8", errors="replace",
                           stdout=subprocess.PIPE if capture else None,
                           stderr=subprocess.STDOUT if capture else None)
+
+
+def normalize_title(title: str) -> str:
+    """Canonical form used for matching a file against an existing issue."""
+    return " ".join(unicodedata.normalize("NFC", title).split())
 
 
 def require_gh() -> None:
@@ -117,7 +136,10 @@ def existing_issues() -> dict:
         rows = json.loads(result.stdout or "[]")
     except json.JSONDecodeError:
         sys.exit("could not parse `gh issue list` output:\n" + (result.stdout or ""))
-    return {row["title"]: row for row in rows}
+    # Normalise: NFC composition, and collapse whitespace. A title that
+    # differs from the file's only by how Unicode spelled it must still match,
+    # because the cost of a false negative here is a duplicate issue.
+    return {normalize_title(row["title"]): row for row in rows}
 
 
 def sync_labels(apply_changes: bool) -> None:
@@ -208,7 +230,7 @@ def main() -> int:
     created = updated = skipped = 0
     for issue in files:
         body = issue.rendered_body(index)
-        match = existing.get(issue.title)
+        match = existing.get(normalize_title(issue.title))
         if match:
             if args.update_bodies:
                 result = gh("issue", "edit", str(match["number"]),
