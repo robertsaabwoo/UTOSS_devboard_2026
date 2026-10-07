@@ -18,6 +18,7 @@ and a bench that produces no testcases is a failure rather than a pass.
 import argparse
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -72,6 +73,33 @@ def compile_args(bench, param_set):
             % (bench.rel_dir, bench.simulator)
         )
     return args
+
+
+def assertion_reasons(log: str) -> dict:
+    """Map testcase name -> the exception message cocotb logged for it.
+
+    cocotb writes `<name> failed` followed by an indented traceback ending in
+    `AssertionError: <the message the bench author wrote>`. The log is
+    column-aligned with a wide left gutter, so the useful text is matched
+    rather than sliced at a fixed offset.
+    """
+    failed_re = re.compile(r"(\w+) failed\s*$")
+    exc_re = re.compile(r"\b([A-Za-z_][\w.]*(?:Error|Exception|Failure)):\s*(.+?)\s*$")
+    reasons = {}
+    current = None
+    for line in log.splitlines():
+        match = failed_re.search(line)
+        if match and "cocotb.regression" in line:
+            current = match.group(1)
+            continue
+        if current:
+            found = exc_re.search(line)
+            if found:
+                reasons.setdefault(current, found.group(2).strip())
+                current = None
+            elif line.strip().startswith("**"):
+                current = None   # reached the results table; give up on this one
+    return reasons
 
 
 def run_one(bench, param_set, waves=False, verbose=False) -> RunOutcome:
@@ -147,9 +175,22 @@ def run_one(bench, param_set, waves=False, verbose=False) -> RunOutcome:
         return RunOutcome(bench, param_set.name, "fail", detail=result.error,
                           seconds=elapsed, log=log_path)
     if result.failures:
-        detail = "; ".join(result.failures[:4])
-        if len(result.failures) > 4:
-            detail += " (+%d more)" % (len(result.failures) - 4)
+        # cocotb's JUnit `message` attribute is only ever "Test failed with
+        # RANDOM_SEED=...", which says nothing. The assertion text the bench
+        # author actually wrote -- the thing that explains what the failure
+        # MEANS for the design -- is in the simulator log, so recover it.
+        # Reporting the seed instead would defeat the whole point of requiring
+        # explanatory assertion messages in the first place.
+        reasons = assertion_reasons(output)
+        enriched = []
+        for failure in result.failures:
+            name = failure.split(":", 1)[0]
+            short = name.rsplit(".", 1)[-1]
+            reason = reasons.get(short) or reasons.get(name)
+            enriched.append("%s: %s" % (name, reason) if reason else failure)
+        detail = "; ".join(enriched[:4])
+        if len(enriched) > 4:
+            detail += " (+%d more)" % (len(enriched) - 4)
         return RunOutcome(bench, param_set.name, "fail", detail=detail,
                           testcases=result.testcases, seconds=elapsed,
                           log=log_path)
