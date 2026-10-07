@@ -1,0 +1,76 @@
+# Labels for the RTL work breakdown.
+#   python3 scripts/sync_issues.py --labels --apply
+# Re-running is safe; it updates colour and description in place.
+
+# --- kind ---------------------------------------------------------------
+- name: rtl
+  color: "1d76db"
+  description: Verilog module to be written
+- name: verification
+  color: "0e8a16"
+  description: Testbench, model or verification infrastructure
+- name: infra
+  color: "5319e7"
+  description: Build, CI, container, tooling
+- name: decision
+  color: "d93f0b"
+  description: A choice that must be made before dependent work can start
+- name: blocked
+  color: "b60205"
+  description: Cannot start until a dependency resolves
+- name: hardware
+  color: "c5def5"
+  description: Touches the schematic, pinout or part selection
+
+# --- area ---------------------------------------------------------------
+- name: "area:infrastructure"
+  color: "bfdadc"
+  description: Clocks, resets, CDC, shared primitives
+- name: "area:control"
+  color: "bfdadc"
+  description: CSRs, UART, supervisor interface, telemetry
+- name: "area:datapath"
+  color: "bfdadc"
+  description: Camera receive, framing, pixel handling
+- name: "area:memory"
+  color: "bfdadc"
+  description: DDR3, arbitration, cube addressing
+- name: "area:compression"
+  color: "bfdadc"
+  description: CCSDS 123 / 121, bit packing, framing
+- name: "area:storage"
+  color: "bfdadc"
+  description: SD card write path
+- name: "area:integration"
+  color: "bfdadc"
+  description: Top level, constraints, timing closure
+
+# --- priority -----------------------------------------------------------
+- name: "P0"
+  color: "b60205"
+  description: On the critical path
+- name: "P1"
+  color: "d93f0b"
+  description: Needed for a working payload, not blocking others
+- name: "P2"
+  color: "fbca04"
+  description: Wanted, deferrable
+
+# --- size ---------------------------------------------------------------
+- name: "size:S"
+  color: "ededed"
+  description: Days
+- name: "size:M"
+  color: "ededed"
+  description: One to two weeks
+- name: "size:L"
+  color: "ededed"
+  description: Several weeks
+- name: "size:XL"
+  color: "ededed"
+  description: A term of work for one person, or split it
+
+# --- entry points -------------------------------------------------------
+- name: good-first-issue
+  color: "7057ff"
+  description: Self-contained, well-specified, no deep context needed
