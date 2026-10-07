@@ -1,0 +1,74 @@
+# Reference bench. Copy this file when you add a module -- or run
+# `python3 scripts/new_module.py --help`, which does it for you.
+#
+# Every field is documented in rtl_tests/README.md. The runner validates this
+# file strictly and names the offending key when it rejects one, so a typo
+# shows up as an error rather than as a silently skipped test.
+
+# Free-form name used in logs, CI job names and the summary table.
+# Defaults to the directory name.
+name: reg_handshake
+
+# status drives whether a failure is fatal:
+#   ready    must run and must pass. The default, and where every module ends up.
+#   wip      runs, failures are reported loudly but do not fail the build --
+#            EXCEPT on a pull request into main, where the runner is --strict
+#            and wip is itself a failure. Use it while a module is in progress.
+#   blocked  not run at all. Requires `blocked_reason`. For benches whose DUT
+#            cannot exist yet (e.g. waiting on the camera interface decision).
+status: ready
+
+# Verilog module instantiated as the top of the simulation.
+toplevel: reg_handshake
+
+# Python module in this directory holding the @cocotb.test() coroutines.
+testbench: test_reg_handshake
+
+# RTL compiled into the simulation, repo-relative. Globs are allowed.
+# Order matters for `include; list the package/header files first.
+sources:
+  - rtl/fpga/reg_handshake.v
+
+# Parameter sets. The bench is run once per entry, in its own build directory,
+# with the parameters overridden on the compiler command line -- so a module
+# that only works at its default width fails here rather than in integration.
+# Widths MUST be parameterized (see rtl/README.md); this is what checks it.
+param_sets:
+  - name: default
+    params:
+      WIDTH: 8
+  - name: narrow
+    params:
+      WIDTH: 1
+  - name: wide
+    params:
+      WIDTH: 64
+
+# Wall-clock limit per parameter set. A hung simulation is a failure, not a
+# 6-hour CI job.
+timeout_seconds: 120
+
+lint:
+  enabled: true
+  # Verilator warning codes to waive, each with a reason. An unexplained waiver
+  # will be rejected in review.
+  waivers: []
+
+synth:
+  enabled: true
+  top: reg_handshake
+  # Parameter set used for the resource measurement. Synthesizing every set
+  # would just multiply CI time; measure the one the design actually uses.
+  param_set: default
+  # Per-module budget. CI fails if the mapped design exceeds it, and also if
+  # the sum of all module budgets exceeds the ceiling in rtl/ecp5_target.yaml.
+  # Set these from a first measured run, then hold the line.
+  budget:
+    luts: 200
+    ff: 200
+    block_ram_blocks: 0
+    dsp_mult_18x18: 0
+  # Place-and-route. Off for leaf modules: P&R on a module in isolation tells
+  # you almost nothing about the timing it will see in the assembled design,
+  # and costs minutes. Turn it on for the top level only.
+  place: false

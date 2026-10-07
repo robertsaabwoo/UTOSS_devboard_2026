@@ -1,0 +1,88 @@
+# Bench manifest for the worked FIFO example.
+#
+# Note where this lives: rtl_tests/<group>/<name>/. The first path segment is
+# the module group, so `tools/dev sim --module examples` runs exactly these and
+# `--module fpga` runs the real modules. A real module's bench goes in exactly
+# the same shape under rtl_tests/fpga/.
+#
+# Field reference: rtl_tests/README.md
+name: example_fifo
+
+# ready, not wip: this one is finished, so a failure here is fatal everywhere,
+# including on a pull request into main.
+status: ready
+
+toplevel: example_fifo
+testbench: test_example_fifo
+
+sources:
+  - rtl/examples/example_fifo.v
+
+# The sweep is the point. The runner re-elaborates the module at each set in
+# its own build directory, and the bench calls assert_param, so a parameter
+# override that silently failed to apply is a failure rather than three
+# identical passes.
+param_sets:
+  # The ordinary case.
+  - name: default
+    params:
+      WIDTH: 8
+      DEPTH: 16
+
+  # Smallest legal everything. WIDTH=1 breaks any test vector that assumed a
+  # byte; DEPTH=2 means full and empty are one write apart, so every
+  # boundary condition happens immediately instead of after 15 writes.
+  - name: minimal
+    params:
+      WIDTH: 1
+      DEPTH: 2
+
+  # DEPTH=7 is not a power of two. A pointer that relies on natural binary
+  # wrap passes every other set here and fails this one -- which is the whole
+  # reason it is in the list.
+  - name: narrow_odd
+    params:
+      WIDTH: 3
+      DEPTH: 7
+
+  # Wide data, deeper buffer. Catches anything that assumed the data bus fits
+  # in a Python int of a particular size, or that level fits in 4 bits.
+  - name: wide
+    params:
+      WIDTH: 32
+      DEPTH: 64
+
+timeout_seconds: 180
+
+lint:
+  enabled: true
+  waivers: []
+
+synth:
+  enabled: true
+  top: example_fifo
+  param_set: default
+  # Measured, not guessed. `tools/dev synth --only example_fifo` reports
+  # 46 LUTs / 13 FFs at WIDTH=8, DEPTH=16 (the 13 flops are wr_ptr 4 + rd_ptr 4
+  # + count 5; the 128-bit memory is LUT RAM, not flops). Budgets are set just
+  # above that, so a change which doubles the area becomes a decision somebody
+  # makes in a pull request, with a reason, instead of something that happens
+  # quietly over a term.
+  #
+  # Set yours the same way: write the module, run the synth gate, then put the
+  # measured number here. A budget invented before measuring is either so loose
+  # it never fires or so tight it fires immediately, and both teach people to
+  # edit the budget instead of reading it.
+  #
+  # block_ram_blocks: 0 is a real assertion, not a formality. rd_data is an
+  # asynchronous read, so this maps to distributed LUT RAM; if a change made it
+  # infer an EBR instead, this gate would catch it. See the memory-inference
+  # note in the module header for why that direction matters too.
+  budget:
+    luts: 70
+    ff: 25
+    block_ram_blocks: 0
+    dsp_mult_18x18: 0
+  # Leaf module: place-and-route in isolation says nothing useful about the
+  # timing it will see in the assembled design, and costs minutes.
+  place: false

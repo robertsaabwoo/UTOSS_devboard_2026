@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# One entry point for the RTL flow, locally and in CI.
+#
+#   tools/dev sim                    run every cocotb bench
+#   tools/dev sim --only dcmi_rx     run one bench
+#   tools/dev sim --waves            keep waveforms (build/rtl/<...>/sim_build)
+#   tools/dev lint                   verilator lint over all RTL
+#   tools/dev synth                  map to the ECP5 and check the budgets
+#   tools/dev all                    lint, then sim, then synth -- what CI runs
+#   tools/dev new fpga dcmi_rx       scaffold a module and its bench
+#   tools/dev shell                  interactive shell in the container
+#   tools/dev versions               print the toolchain versions
+#   tools/dev build                  (re)build the container image
+#
+# Everything runs inside the container from docker/Dockerfile, so a bench that
+# passes here passes in CI for the same reason. Set UTOSS_NO_DOCKER=1 to use the
+# tools on your PATH instead -- faster in a tight edit loop, but then a version
+# difference between your machine and CI is yours to debug.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+IMAGE="${UTOSS_RTL_IMAGE:-utoss-rtl:synth}"
+TARGET="${UTOSS_RTL_TARGET:-synth}"
+
+usage() { sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+have_docker() { command -v docker >/dev/null 2>&1; }
+
+image_exists() { docker image inspect "$IMAGE" >/dev/null 2>&1; }
+
+build_image() {
+    local extra=()
+    # Campus and corporate networks that re-sign HTTPS break pip but not apt.
+    # Opt in rather than always-on: skipping certificate verification by
+    # default would be a bad habit to ship to a whole team.
+    if [ -n "${UTOSS_PIP_TRUSTED_HOST:-}" ]; then
+        extra+=(--build-arg "PIP_TRUSTED_HOST=${UTOSS_PIP_TRUSTED_HOST}")
+    fi
+    echo "==> building $IMAGE (target: $TARGET)"
+    docker build -f "$REPO_ROOT/docker/Dockerfile" --target "$TARGET" \
+        "${extra[@]}" -t "$IMAGE" "$REPO_ROOT"
+}
+
+# Host path as Docker wants it. Git Bash and MSYS rewrite anything that looks
+# like a Unix path when it is passed to a Windows binary, which turns
+# `-w /work` into `-w C:/Program Files/Git/work`; MSYS_NO_PATHCONV=1 and the
+# `//work` spelling are what stop that.
+host_path() {
+    if command -v cygpath >/dev/null 2>&1; then
+        cygpath -w "$REPO_ROOT"
+    else
+        printf '%s' "$REPO_ROOT"
+    fi
+}
+
+in_container() {
+    local interactive=()
+    [ -t 0 ] && interactive=(-it)
+    MSYS_NO_PATHCONV=1 docker run --rm "${interactive[@]}" \
+        -v "$(host_path):/work" -w //work \
+        -e GITHUB_STEP_SUMMARY \
+        "$IMAGE" "$@"
+}
+
+run() {
+    if [ "${UTOSS_NO_DOCKER:-0}" = "1" ]; then
+        ( cd "$REPO_ROOT" && "$@" )
+        return
+    fi
+    if ! have_docker; then
+        echo "docker not found. Install Docker, or set UTOSS_NO_DOCKER=1 to use" >&2
+        echo "iverilog/verilator/yosys/cocotb from your PATH instead." >&2
+        exit 1
+    fi
+    image_exists || build_image
+    in_container "$@"
+}
+
+command="${1:-all}"
+[ $# -gt 0 ] && shift || true
+
+case "$command" in
+    build)    build_image ;;
+    rebuild)  docker image rm -f "$IMAGE" >/dev/null 2>&1 || true; build_image ;;
+    sim)      run python3 scripts/run_rtl_tests.py "$@" ;;
+    lint)     run python3 scripts/lint_rtl.py "$@" ;;
+    synth)    run python3 scripts/run_synth_check.py "$@" ;;
+    list)     run python3 scripts/rtl_bench.py "$@" ;;
+    new)      run python3 scripts/new_module.py "$@" ;;
+    versions) run utoss-versions ;;
+    shell)    run /bin/bash ;;
+    all)
+        # Lint first: it is seconds, and it catches the mistakes that would
+        # otherwise show up as a confusing simulation failure minutes later.
+        run python3 scripts/lint_rtl.py
+        run python3 scripts/run_rtl_tests.py "$@"
+        run python3 scripts/run_synth_check.py
+        ;;
+    -h|--help|help) usage ;;
+    *)
+        echo "unknown command: $command" >&2
+        echo >&2
+        usage >&2
+        exit 2
+        ;;
+esac

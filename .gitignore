@@ -25,8 +25,19 @@ fp-info-cache
 *.raw
 *.log
 b3_*.log
+spice/power/tmp*.cir
+
+# --- cocotb / RTL sim ---
+rtl_tests/**/sim_build/
+rtl_tests/**/results.xml
+
+# --- Python ---
+__pycache__/
 
 # --- OS / editor cruft ---
 .DS_Store
 Thumbs.db
 .vscode/
+
+# --- RTL build outputs (simulation, synthesis, logs) ---
+/build/

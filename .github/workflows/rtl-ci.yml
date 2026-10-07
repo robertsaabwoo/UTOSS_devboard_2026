@@ -1,0 +1,217 @@
+name: rtl-ci
+
+# RTL verification. Separate from kicad-ci.yml on purpose: that workflow gates
+# the schematic and the power design, this one gates Verilog, and a contributor
+# who breaks one should not be reading the other's logs.
+#
+# Everything runs inside the image built from docker/Dockerfile -- the same
+# image `tools/dev` runs locally. That is the whole point: when a bench fails
+# here and passes on a laptop, the cause is the code, not the toolchain.
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same branch. An RTL matrix is the most
+# expensive thing in this repo and nobody reads the results of a run that has
+# already been replaced.
+concurrency:
+  group: rtl-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect RTL changes
+    runs-on: ubuntu-latest
+    outputs:
+      rtl: ${{ steps.filter.outputs.rtl }}
+      run_all: ${{ steps.gate.outputs.run_all }}
+      strict: ${{ steps.gate.outputs.strict }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # paths-filter needs history to diff against the base
+
+      - name: Decide full gate and strictness
+        id: gate
+        # Context values go through env rather than being interpolated into the
+        # script body: a branch name containing shell metacharacters would
+        # otherwise execute here.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          REF: ${{ github.ref }}
+        run: |
+          if { [ "$EVENT_NAME" = "pull_request" ] && [ "$BASE_REF" = "main" ]; } \
+             || [ "$REF" = "refs/heads/main" ]; then
+            echo "run_all=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_all=false" >> "$GITHUB_OUTPUT"
+          fi
+          # --strict makes `status: wip` a failure. Allowed on a feature branch,
+          # refused on the way into main -- otherwise "wip" becomes permanent
+          # and the gate means nothing.
+          if [ "$EVENT_NAME" = "pull_request" ] && [ "$BASE_REF" = "main" ]; then
+            echo "strict=--strict" >> "$GITHUB_OUTPUT"
+          else
+            echo "strict=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rtl:
+              - 'rtl/**'
+              - 'rtl_tests/**'
+              - 'docker/**'
+              - 'scripts/run_rtl_tests.py'
+              - 'scripts/run_synth_check.py'
+              - 'scripts/lint_rtl.py'
+              - 'scripts/rtl_bench.py'
+              - 'scripts/check_cocotb_results.py'
+              - 'tools/dev'
+              - '.github/workflows/rtl-ci.yml'
+
+  # Build once, cache the layers, let the three gates below restore them. The
+  # image is ~1 GB; building it three times in parallel would dominate the run.
+  image:
+    name: Build toolchain image
+    needs: changes
+    if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.rtl == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: synth
+          tags: utoss-rtl:synth
+          cache-from: type=gha,scope=rtl-synth
+          cache-to: type=gha,mode=max,scope=rtl-synth
+          # Not loaded into the local daemon here -- this job only populates the
+          # cache. The gate jobs below rebuild from it, which is a cache hit.
+          outputs: type=cacheonly
+
+  lint:
+    name: "rtl / Lint (verilator)"
+    needs: [changes, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: synth
+          tags: utoss-rtl:synth
+          cache-from: type=gha,scope=rtl-synth
+          load: true
+      - name: Validate bench manifests
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/work" -w /work             utoss-rtl:synth python3 scripts/rtl_bench.py
+
+      - name: Lint all RTL
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/work" -w /work             utoss-rtl:synth python3 scripts/lint_rtl.py
+
+  sim:
+    name: "rtl / cocotb simulation"
+    needs: [changes, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: synth
+          tags: utoss-rtl:synth
+          cache-from: type=gha,scope=rtl-synth
+          load: true
+
+      # The runner is the gate, not `make`: cocotb's Makefile flow exits 0 even
+      # when testcases fail, and a bench that produced no testcases at all is
+      # treated as a failure rather than as a pass. See
+      # scripts/check_cocotb_results.py.
+      - name: Run every cocotb bench
+        env:
+          STRICT: ${{ needs.changes.outputs.strict }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" -w /work \
+            -e GITHUB_STEP_SUMMARY=/work/build/step-summary.md \
+            utoss-rtl:synth \
+            sh -c 'mkdir -p build && python3 scripts/run_rtl_tests.py '"$STRICT"
+
+      # Outside the container's view of GITHUB_STEP_SUMMARY, so copy it across.
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f build/step-summary.md ]; then
+            cat build/step-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload simulation logs and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl-sim-results
+          path: |
+            build/rtl/**/results.xml
+            build/rtl/**/sim.log
+            build/rtl/summary.md
+          if-no-files-found: warn
+
+  synth:
+    name: "rtl / ECP5 synthesis & resource budget"
+    needs: [changes, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: synth
+          tags: utoss-rtl:synth
+          cache-from: type=gha,scope=rtl-synth
+          load: true
+
+      - name: Map every module onto the ECP5 and check budgets
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" -w /work \
+            -e GITHUB_STEP_SUMMARY=/work/build/synth-summary.md \
+            utoss-rtl:synth \
+            sh -c 'mkdir -p build && python3 scripts/run_synth_check.py'
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f build/synth-summary.md ]; then
+            cat build/synth-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload synthesis logs and netlists
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl-synth-results
+          path: |
+            build/synth/**/yosys.log
+            build/synth/**/nextpnr.log
+            build/synth/**/*.json
+            build/synth/summary.md
+          if-no-files-found: warn
