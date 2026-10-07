@@ -56,12 +56,12 @@ jobs:
             # check_logic_spec.py walks the whole cross-module graph, so any
             # io_specs change can flip a logic result for any module -- these
             # filters watch io_specs/** rather than just their own spec file.
+            # RTL lives in its own workflow (.github/workflows/rtl-ci.yml) --
+            # this filter is only about the schematic and the io_specs graph.
             fpga:
               - 'hardware/devboard.kicad_sch'
               - 'io_specs/**'
               - 'scripts/check_logic_spec.py'
-              - 'rtl/fpga/**'
-              - 'rtl_tests/fpga/**'
             uart_io:
               - 'hardware/devboard.kicad_sch'
               - 'io_specs/**'
@@ -205,44 +205,3 @@ jobs:
 
       - name: Check supervisor electrical/logic-level cross-references
         run: python3 scripts/check_logic_spec.py --module supervisor
-
-  fpga-rtl:
-    name: "fpga / cocotb RTL sim"
-    needs: changes
-    if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.fpga == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Icarus Verilog
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y iverilog
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install cocotb
-        run: pip install "cocotb==1.9.*"
-
-      - name: Run cocotb testbench (reg_handshake)
-        working-directory: rtl_tests/fpga
-        run: |
-          rm -f results.xml
-          make SIM=icarus
-
-      # `make` above exits 0 even when a testcase fails, so it cannot be the
-      # gate on its own -- results.xml is the source of truth.
-      - name: Check cocotb results
-        if: always()
-        run: python3 scripts/check_cocotb_results.py rtl_tests/fpga/results.xml
-
-      - name: Upload cocotb results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fpga-rtl-results
-          path: rtl_tests/fpga/results.xml
-          if-no-files-found: warn

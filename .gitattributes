@@ -19,3 +19,10 @@ Makefile    text eol=lf
 *.kicad_sch text eol=lf
 *.kicad_pcb text eol=lf
 *.kicad_pro text eol=lf
+
+# Executable wrapper scripts with no extension. Same reasoning as above: a CRLF
+# shebang line makes the interpreter lookup fail with a confusing error.
+tools/dev            text eol=lf
+docker/utoss-versions text eol=lf
+Dockerfile           text eol=lf
+docker/Dockerfile    text eol=lf

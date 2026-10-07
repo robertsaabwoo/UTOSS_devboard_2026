@@ -38,3 +38,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# --- RTL build outputs (simulation, synthesis, logs) ---
+/build/

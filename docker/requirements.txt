@@ -1,0 +1,4 @@
+# Pinned to patch level. An RTL bench that passes on one machine and fails on
+# another because of a toolchain float is the most expensive kind of flake.
+cocotb==1.9.2
+pyyaml==6.0.2
