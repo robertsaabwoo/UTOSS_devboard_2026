@@ -11,16 +11,30 @@ Capture the camera's source-synchronous parallel video bus into the FPGA and
 present it as a stream in the `clk_px` domain. `DCMI_RX` in
 `io_specs/fpga.yaml`.
 
-## Status against D-01
+## Status against D-01 — read this first
 
 This is the **parallel** path, which is what `io_specs/camera.yaml` and
 `io_specs/fpga.yaml` currently describe. It is the cheapest of the three options
-by a wide margin. `D-01` may replace it with `DP-02` (Camera Link) or `DP-03`
-(GigE Vision) — but the bus parameters below are parameterized precisely so that
-work done here is not wasted if the sensor changes within the parallel family, and
-everything downstream of this module (`DP-04` onward) is independent of the choice.
+by a wide margin.
 
-Start it. Do not wait for `D-01`.
+**It is probably not what we will ship.** At the 2026-09-05 meeting the client
+stated the camera interface as Camera Link or GigE, which points at `DP-02` or
+`DP-03`. `D-01` is open to confirm which.
+
+It is still worth building, for two reasons:
+
+1. If the part turns out to be a raw sensor module rather than a camera, this
+   is the receiver.
+2. Either way it is the cheapest possible pixel source for integration. `DP-04`
+   through `CMP-04`, `MEM-*` and `V-03` all need *something* feeding them, and
+   they are independent of which receiver it is (`rtl/README.md` §5). A working
+   `dcmi_rx` plus the `V-02` camera model unblocks the entire rest of the chain
+   now, instead of after a Camera Link deserializer is debugged.
+
+So build it as the integration pixel source, keep it small, and do not spend
+effort on parallel-specific polish that a Camera Link decision would discard.
+If `D-01` resolves to parallel, this becomes the flight receiver and gets the
+rest of the attention then.
 
 ## Deliverables
 

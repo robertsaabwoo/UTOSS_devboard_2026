@@ -10,10 +10,31 @@ depends_on: []
 Which physical and protocol interface the sensor presents to the FPGA. Three
 candidates, from `rtl/RTL_PLAN.md` §1:
 
-1. **Plain parallel (DCMI-style)** — PCLK, HSYNC, VSYNC, D[13:0]. What
+1. **Camera Link** — LVDS pairs with a 7:1 serialisation.
+2. **GigE Vision** — RGMII, MAC, UDP/IP, GVSP streaming, GVCP control.
+3. **Plain parallel (DCMI-style)** — PCLK, HSYNC, VSYNC, D[13:0]. What
    `io_specs/camera.yaml` and `io_specs/fpga.yaml` currently assume.
-2. **Camera Link** — LVDS pairs with a 7:1 serialisation.
-3. **GigE Vision** — RGMII, MAC, UDP/IP, GVSP streaming, GVCP control.
+
+## Start here: the specs and the client disagree
+
+At the 2026-09-05 bus/payload meeting the client stated the interface as
+**Camera Link or GigE** — explicitly *not* the DCMI-style parallel bus that
+`io_specs/camera.yaml` and `io_specs/fpga.yaml` describe today. The FPGA is
+replacing a Raspberry Pi and an unmaintainable microcontroller camera driver,
+and both of those read a camera, not a raw sensor.
+
+So the first job of this issue is not a trade study, it is **confirming which
+of the two the client means**, and then correcting the io_specs. The parallel
+option stays on the list only because it is what the repository currently
+asserts and because it applies if the part turns out to be a raw sensor module
+rather than a camera — but it should be treated as the least likely outcome,
+not the default.
+
+That reordering matters for scheduling: both of the likely answers are the
+expensive ones. `DP-02` (Camera Link, ~2000 LUTs and a hand-built
+deserializer on a part with no SERDES) and `DP-03` (GigE, ~4000 LUTs plus a
+PHY, magnetics and a connector on the PCB) are each larger than the
+compressor's entropy coder.
 
 ## Why this is the first decision on the board
 
@@ -38,9 +59,14 @@ after routing is expensive.
 
 ## What to produce
 
-- [ ] A shortlist of two or three candidate sensor modules that meet the science
+- [ ] **Confirm with the client (Boris / Joe Dai) which of Camera Link or GigE
+      Vision the camera actually presents**, and whether a specific camera has
+      been selected on their side. This is one email and it removes the largest
+      unknown in the RTL schedule.
+- [ ] A shortlist of two or three candidate camera modules that meet the science
       requirement, with datasheets, lead time and price. The payload is
-      hyperspectral at ~20 MB/s for 1–2 min/day.
+      hyperspectral at ~20 MB/s for 1–2 min/day, within a ~$2000 total cost
+      envelope.
 - [ ] For each: interface type, data width, bit depth, pixel clock, sync
       polarity, which PCLK edge data is valid on, I/O voltage, power rails and
       their sequencing.
@@ -63,10 +89,16 @@ after routing is expensive.
 
 ## Notes
 
-Until this resolves, the RTL proceeds on the **parallel** assumption, because
-that is what the io_specs describe and because nothing downstream of the pixel
-stream depends on the choice. `DP-04` onward are written against the stream
-interface in `rtl/README.md` §5, not against the camera.
+Everything downstream of the pixel stream is **independent of this decision**:
+`DP-04` onward are written against the stream interface in `rtl/README.md` §5,
+not against the camera. So the rest of the datapath, the memory subsystem and
+the whole compression chain can proceed at full speed while this is settled.
+
+`DP-01` (parallel) is specified and buildable, and remains the right thing to
+build if the answer turns out to be a raw sensor module. It is also by far the
+cheapest way to get a working pixel source into the chain for integration
+testing. But do not treat it as the expected answer — the client's stated
+requirement points at `DP-02` or `DP-03`.
 
 ## References
 
@@ -75,3 +107,6 @@ interface in `rtl/README.md` §5, not against the camera.
 - `UTAT Meeting.txt`: "How flexible should our pinouts be?", "need to get reset
   controls of the camera and all other controls of the camera that the ground
   station can have control of"
+- 2026-09-05 bus/payload meeting: interface stated as Camera Link or GigE; the
+  FPGA replaces an always-on Raspberry Pi and an unmaintainable microcontroller
+  camera driver

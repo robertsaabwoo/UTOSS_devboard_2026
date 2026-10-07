@@ -6,14 +6,21 @@ depends_on: [D-01, I-01, I-02]
 blocked_by_decision: D-01
 ---
 
-## Blocked
+## Blocked — but one of the two likely outcomes
 
-**Do not start this.** It only exists if `D-01` chooses Camera Link. If `D-01`
-chooses parallel or GigE, close this issue.
+**Do not start the RTL.** It only applies if `D-01` chooses Camera Link, and if
+`D-01` chooses GigE or parallel this issue closes.
 
-It is filed now because it is the option with by far the largest schedule and
-resource cost, and that has to be visible while the camera decision is being made
-rather than afterwards.
+But note that this is **not** a remote contingency: at the 2026-09-05 meeting
+the client stated the interface as Camera Link or GigE, so this and `DP-03` are
+the two probable answers. The parallel receiver in `DP-01` is the fallback, not
+the baseline.
+
+That makes the "before any RTL is written" checklist below urgent rather than
+hypothetical — in particular the LVDS feasibility question and the
+off-the-shelf-receiver-chip option. Both are answerable now, while `D-01` is
+still open, and either could rule Camera Link out on hardware grounds before a
+line of Verilog is written.
 
 ## Why it is the hardest block in the project
 

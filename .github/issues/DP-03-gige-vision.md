@@ -6,13 +6,21 @@ depends_on: [D-01, I-01, I-02]
 blocked_by_decision: D-01
 ---
 
-## Blocked
+## Blocked — but one of the two likely outcomes
 
-**Do not start this.** It only exists if `D-01` chooses GigE Vision. If `D-01`
-chooses parallel or Camera Link, close this issue.
+**Do not start the RTL.** It only applies if `D-01` chooses GigE Vision, and if
+`D-01` chooses Camera Link or parallel this issue closes.
 
-Filed now because it is the option that also changes the **PCB**, and that has to
-be visible while the camera decision is open.
+But note that this is **not** a remote contingency: at the 2026-09-05 meeting
+the client stated the interface as Camera Link or GigE, so this and `DP-02` are
+the two probable answers.
+
+That matters more here than anywhere else in the breakdown, because this option
+**changes the PCB** — a PHY, magnetics and a connector that
+`hardware/devboard.kicad_sch` does not have, with their own rails, `io_specs`
+entries and ERC consequences. The schematic work has a January deadline. If
+there is any chance the answer is GigE, the board-level checklist below has to
+be worked through *before* layout, not after `D-01` formally closes.
 
 ## What it would involve
 
