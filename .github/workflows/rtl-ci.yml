@@ -153,6 +153,17 @@ jobs:
             utoss-rtl:synth \
             sh -c 'mkdir -p build && python3 scripts/run_rtl_tests.py '"$STRICT"
 
+      # Nothing else in CI passes --waves, so without this step a broken dump
+      # goes unnoticed until someone is mid-debug and gets no waveform. The
+      # runner fails the bench if --waves produced no .fst. The dump is
+      # uploaded with the results, so anyone can download a real one.
+      - name: Waveform dump still works
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" -w /work \
+            utoss-rtl:synth \
+            python3 scripts/run_rtl_tests.py --only example_fifo --param-set minimal --waves
+
       # Outside the container's view of GITHUB_STEP_SUMMARY, so copy it across.
       - name: Publish summary
         if: always()
@@ -169,6 +180,7 @@ jobs:
           path: |
             build/rtl/**/results.xml
             build/rtl/**/sim.log
+            build/rtl/**/*.fst
             build/rtl/summary.md
           if-no-files-found: warn
 

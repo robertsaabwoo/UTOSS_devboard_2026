@@ -40,6 +40,31 @@ tools/dev shell                    # poke around inside the container
 `make sim`, `make lint`, `make synth`, `make all` do the same thing. On Windows
 without Git Bash or WSL, use `.\tools\dev.ps1 sim`.
 
+### Waveforms
+
+```bash
+make waves ARGS="--only example_fifo"                       # every param set
+make waves ARGS="--only example_fifo --param-set minimal"   # just one
+```
+
+`make waves` is `make sim` with `--waves`. Each bench and parameter set gets
+its own dump, and the runner prints the path:
+
+```
+[run]     examples/example_fifo[minimal]
+          waves: build/rtl/examples/example_fifo/minimal/sim_build/example_fifo.fst
+```
+
+Open it with [GTKWave](https://gtkwave.sourceforge.net/) (`gtkwave <file>.fst`)
+or [Surfer](https://surfer-project.org/) (also runs in a browser). The dump
+covers every signal under the top level for the whole run, so it can be large:
+narrow it with `--only`.
+
+If you ask for waves and no dump appears, the bench **fails** rather than
+passing quietly. CI checks this on every run, and each CI run's
+`rtl-sim-results` artifact includes the example FIFO's dump, so you can see
+what one looks like without installing anything.
+
 Outputs land in `build/` (git-ignored): `results.xml`, `sim.log` and the
 waveform per bench and parameter set, `yosys.log` and the netlist per synthesis
 run, and a `summary.md` for each.
@@ -159,10 +184,15 @@ The runner is the gate, but when you want raw simulator output:
 ```bash
 tools/dev shell
 cd rtl_tests/examples/reg_handshake
+VERILOG_SOURCES=/work/rtl/examples/reg_handshake.v \
 make -f ../../common/cocotb.mk \
-    TOPLEVEL=reg_handshake MODULE=test_reg_handshake \
-    VERILOG_SOURCES=/work/rtl/examples/reg_handshake.v
+    TOPLEVEL=reg_handshake MODULE=test_reg_handshake WAVES=1
 ```
+
+Set `VERILOG_SOURCES` (and `COMPILE_ARGS`, if you need one) as environment
+variables, not as `make` arguments. cocotb's waveform support appends to both,
+and a value given on the `make` command line silently overrides the append, so
+`WAVES=1` would write nothing.
 
 Note that `make` on its own **exits 0 even when testcases fail** — which is why
 `scripts/run_rtl_tests.py` reads `results.xml` instead of trusting the exit code,
