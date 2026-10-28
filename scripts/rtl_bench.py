@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover - surfaced as an actionable message
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 BENCH_DIR = REPO_ROOT / "rtl_tests"
-TARGET_FILE = REPO_ROOT / "rtl" / "ecp5_target.yaml"
+TARGET_FILE = REPO_ROOT / "rtl" / "target.yaml"
 
 STATUSES = ("ready", "wip", "blocked")
 
@@ -27,8 +27,10 @@ TOP_LEVEL_KEYS = {
     "param_sets", "timeout_seconds", "simulator", "defines", "lint", "synth",
 }
 LINT_KEYS = {"enabled", "top", "waivers"}
-SYNTH_KEYS = {"enabled", "top", "param_set", "budget", "place", "lpf", "target_mhz"}
-BUDGET_KEYS = {"luts", "ff", "block_ram_blocks", "dsp_mult_18x18"}
+# No place-and-route keys: on the K26, placement and timing belong to Vivado,
+# not to the per-module CI gate.
+SYNTH_KEYS = {"enabled", "top", "param_set", "budget"}
+BUDGET_KEYS = {"luts", "ff", "bram18", "uram", "dsp"}
 
 
 class BenchError(Exception):
@@ -210,9 +212,6 @@ class Bench:
             "top": synth.get("top", self.toplevel),
             "param_set": param_set,
             "budget": budget,
-            "place": synth.get("place", False),
-            "lpf": synth.get("lpf"),
-            "target_mhz": synth.get("target_mhz"),
         }
 
     def param_set(self, name: str) -> Optional[ParamSet]:
@@ -277,7 +276,7 @@ def discover(module: Optional[str] = None,
 
 
 def load_target() -> dict:
-    """Read rtl/ecp5_target.yaml."""
+    """Read rtl/target.yaml."""
     if not TARGET_FILE.is_file():
         raise BenchError(
             "%s is missing -- it defines the synthesis target" % TARGET_FILE

@@ -6,10 +6,10 @@
 # Makefile-based.
 #
 # Running a single bench by hand, bypassing the runner:
-#   cd rtl_tests/fpga/reg_handshake
+#   cd rtl_tests/examples/reg_handshake
 #   make -f ../../common/cocotb.mk \
 #        TOPLEVEL=reg_handshake MODULE=test_reg_handshake \
-#        VERILOG_SOURCES="$(git rev-parse --show-toplevel)/rtl/fpga/reg_handshake.v"
+#        VERILOG_SOURCES="$(git rev-parse --show-toplevel)/rtl/examples/reg_handshake.v"
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 

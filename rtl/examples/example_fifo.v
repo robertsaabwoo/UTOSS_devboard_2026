@@ -32,8 +32,8 @@
 // asynchronous read of `mem`, so yosys infers distributed LUT RAM. That is the
 // right choice for the small FIFOs this example is swept at, and the WRONG
 // choice at, say, DEPTH=1024 x WIDTH=32 -- 32 kbit in LUTs costs roughly a
-// hundred times what the same buffer costs in one EBR. The real fifo_sync has
-// to infer EBR when it is large, and `tools/dev synth` is how you check which
+// hundred times what the same buffer costs in one block RAM. A large FIFO has
+// to infer block RAM, and `tools/dev synth` is how you check which
 // one you got. A 2 kB buffer that quietly became 16000 LUTs is a classic way
 // to run out of an FPGA.
 module example_fifo #(

@@ -1,4 +1,4 @@
-"""Reference cocotb bench -- rtl/fpga/reg_handshake.v.
+"""Reference cocotb bench -- rtl/examples/reg_handshake.v.
 
 This is the worked example for every bench in this repo. Three things in it are
 the pattern to copy:

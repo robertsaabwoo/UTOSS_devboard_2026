@@ -62,27 +62,25 @@ synth:
   enabled: true
   top: example_fifo
   param_set: default
-  # Measured, not guessed. `tools/dev synth --only example_fifo` reports
-  # 46 LUTs / 13 FFs at WIDTH=8, DEPTH=16 (the 13 flops are wr_ptr 4 + rd_ptr 4
-  # + count 5; the 128-bit memory is LUT RAM, not flops). Budgets are set just
-  # above that, so a change which doubles the area becomes a decision somebody
-  # makes in a pull request, with a reason, instead of something that happens
-  # quietly over a term.
+  # Measured, not guessed. `tools/dev synth --only example_fifo` reports the
+  # count at WIDTH=8, DEPTH=16 (13 flops: wr_ptr 4 + rd_ptr 4 + count 5; the
+  # 128-bit memory is LUT RAM, not flops). Budgets are set just above that, so
+  # a change which doubles the area becomes a decision somebody makes in a pull
+  # request, with a reason, instead of something that happens quietly over a
+  # term.
   #
   # Set yours the same way: write the module, run the synth gate, then put the
   # measured number here. A budget invented before measuring is either so loose
   # it never fires or so tight it fires immediately, and both teach people to
   # edit the budget instead of reading it.
   #
-  # block_ram_blocks: 0 is a real assertion, not a formality. rd_data is an
-  # asynchronous read, so this maps to distributed LUT RAM; if a change made it
-  # infer an EBR instead, this gate would catch it. See the memory-inference
-  # note in the module header for why that direction matters too.
+  # bram18: 0 is a real assertion, not a formality. rd_data is an asynchronous
+  # read, so this maps to distributed LUT RAM; if a change made it infer a
+  # block RAM instead, this gate would catch it. See the memory-inference note
+  # in the module header for why that direction matters too.
   budget:
     luts: 70
     ff: 25
-    block_ram_blocks: 0
-    dsp_mult_18x18: 0
-  # Leaf module: place-and-route in isolation says nothing useful about the
-  # timing it will see in the assembled design, and costs minutes.
-  place: false
+    bram18: 0
+    uram: 0
+    dsp: 0

@@ -2,7 +2,7 @@
 #
 #   make sim          run every cocotb bench in the container
 #   make lint         verilator lint over all RTL
-#   make synth        map to the ECP5 and check resource budgets
+#   make synth        map to UltraScale+ and check resource budgets
 #   make all          lint, sim, synth -- the same three gates CI runs
 #   make shell        interactive shell in the container
 #   make list         list every discovered bench

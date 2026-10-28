@@ -3,6 +3,8 @@
 // Placeholder write-strobe register with a busy/ack handshake -- stands in
 // for a memory-mapped register block sitting between FPGA fabric and a
 // CPU/memory-facing bus. Proves the cocotb CI gate before real RTL exists.
+// Kept as the reference bench (rtl_tests/examples/reg_handshake/); it is not
+// part of the payload design.
 module reg_handshake #(
     parameter WIDTH = 8
 ) (

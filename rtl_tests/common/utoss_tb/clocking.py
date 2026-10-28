@@ -22,7 +22,7 @@ def start_clock(dut, port: str = "clk", period_ns: float = 10.0):
     """Start a free-running clock on `dut.<port>` and return the handle.
 
     Period defaults to 10 ns (100 MHz), which is the `sys` domain target in
-    rtl/ecp5_target.yaml. Pass the real period for other domains -- a bench
+    rtl/target.yaml. Pass the real period for other domains -- a bench
     that runs every domain at 100 MHz proves nothing about the CDC.
     """
     clock = Clock(getattr(dut, port), period_ns, units="ns")

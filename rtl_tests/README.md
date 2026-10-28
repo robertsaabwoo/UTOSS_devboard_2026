@@ -32,7 +32,7 @@ tools/dev sim --only dcmi_rx --param-set narrow
 tools/dev sim --waves              # keep waveforms under build/rtl/...
 tools/dev sim --verbose            # stream simulator output
 tools/dev lint                     # verilator lint over all RTL
-tools/dev synth                    # ECP5 mapping + resource budgets
+tools/dev synth                    # UltraScale+ mapping + resource budgets
 tools/dev list                     # every discovered bench and its status
 tools/dev shell                    # poke around inside the container
 ```
@@ -58,7 +58,7 @@ a network that re-signs HTTPS. Set
 ## `bench.yaml`
 
 The fully-documented example is
-[`fpga/reg_handshake/bench.yaml`](fpga/reg_handshake/bench.yaml). Field
+[`examples/reg_handshake/bench.yaml`](examples/reg_handshake/bench.yaml). Field
 reference:
 
 | Field | Required | Meaning |
@@ -78,10 +78,7 @@ reference:
 | `synth.enabled` | no | Default true. |
 | `synth.top` | no | Defaults to `toplevel`. |
 | `synth.param_set` | no | Which parameter set to measure area with. |
-| `synth.budget` | no | `luts`, `ff`, `block_ram_blocks`, `dsp_mult_18x18`. CI fails if the mapped design exceeds it. |
-| `synth.place` | no | Run nextpnr place-and-route. Top level only. |
-| `synth.lpf` | if placing | Pin constraint file. |
-| `synth.target_mhz` | no | Timing target passed to nextpnr. |
+| `synth.budget` | no | `luts`, `ff`, `bram18` (18 Kb halves; a RAMB36 is 2), `uram`, `dsp`. CI fails if the mapped design exceeds it. |
 
 Unknown keys are **rejected**, not ignored. A typo that silently disables a
 bench looks exactly like a passing build, which is the one failure mode this
@@ -110,7 +107,7 @@ tools/dev new fpga dcmi_rx
 
 That writes `rtl/fpga/dcmi_rx.v`, `rtl_tests/fpga/dcmi_rx/bench.yaml` and
 `rtl_tests/fpga/dcmi_rx/test_dcmi_rx.py`, all of which already pass. Then read
-[`fpga/reg_handshake/test_reg_handshake.py`](fpga/reg_handshake/test_reg_handshake.py)
+[`examples/reg_handshake/test_reg_handshake.py`](examples/reg_handshake/test_reg_handshake.py)
 — it is the worked example.
 
 ### Shared helpers
@@ -161,10 +158,10 @@ The runner is the gate, but when you want raw simulator output:
 
 ```bash
 tools/dev shell
-cd rtl_tests/fpga/reg_handshake
+cd rtl_tests/examples/reg_handshake
 make -f ../../common/cocotb.mk \
     TOPLEVEL=reg_handshake MODULE=test_reg_handshake \
-    VERILOG_SOURCES=/work/rtl/fpga/reg_handshake.v
+    VERILOG_SOURCES=/work/rtl/examples/reg_handshake.v
 ```
 
 Note that `make` on its own **exits 0 even when testcases fail** — which is why

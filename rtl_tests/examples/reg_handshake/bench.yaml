@@ -27,7 +27,7 @@ testbench: test_reg_handshake
 # RTL compiled into the simulation, repo-relative. Globs are allowed.
 # Order matters for `include; list the package/header files first.
 sources:
-  - rtl/fpga/reg_handshake.v
+  - rtl/examples/reg_handshake.v
 
 # Parameter sets. The bench is run once per entry, in its own build directory,
 # with the parameters overridden on the compiler command line -- so a module
@@ -61,14 +61,11 @@ synth:
   # would just multiply CI time; measure the one the design actually uses.
   param_set: default
   # Per-module budget. CI fails if the mapped design exceeds it, and also if
-  # the sum of all module budgets exceeds the ceiling in rtl/ecp5_target.yaml.
+  # the sum of all module budgets exceeds the ceiling in rtl/target.yaml.
   # Set these from a first measured run, then hold the line.
   budget:
     luts: 200
     ff: 200
-    block_ram_blocks: 0
-    dsp_mult_18x18: 0
-  # Place-and-route. Off for leaf modules: P&R on a module in isolation tells
-  # you almost nothing about the timing it will see in the assembled design,
-  # and costs minutes. Turn it on for the top level only.
-  place: false
+    bram18: 0
+    uram: 0
+    dsp: 0

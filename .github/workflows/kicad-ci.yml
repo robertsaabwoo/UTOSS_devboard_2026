@@ -1,9 +1,10 @@
 name: kicad-ci
 
-# Paused: hardware/devboard.kicad_sch was the ECP5 board and has no connectivity
-# (13 ERC errors), so this would only ever be red. Run it by hand from the
-# Actions tab; point it at the K26 carrier schematic and restore the push /
-# pull_request triggers once B2.4 starts (see INF-01).
+# Paused: the schematic and io_specs it checks were the ECP5 board, and are now
+# in archive/ecp5/, so a manual run fails on missing files. The jobs and the
+# scripts they call are kept for the K26 carrier: when B2.4 starts, point the
+# paths below at the carrier schematic and its io_specs and restore the push /
+# pull_request triggers (see INF-01).
 on:
   workflow_dispatch:
   # push:

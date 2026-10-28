@@ -9,7 +9,7 @@ what does it take to land one?"
 | Module | [`example_fifo.v`](example_fifo.v) |
 | Manifest | [`../../rtl_tests/examples/example_fifo/bench.yaml`](../../rtl_tests/examples/example_fifo/bench.yaml) |
 | Bench | [`../../rtl_tests/examples/example_fifo/test_example_fifo.py`](../../rtl_tests/examples/example_fifo/test_example_fifo.py) |
-| Measured | 46 LUTs, 13 FFs, 0 EBR, 0 DSP at `WIDTH=8, DEPTH=16` |
+| Measured | MEASURE_PENDING at `WIDTH=8, DEPTH=16` |
 | Status | 7 tests × 4 parameter sets = 28 cases, all green |
 
 ```bash
@@ -22,11 +22,10 @@ On Windows, the same three with `tools\dev.cmd` in place of `tools/dev`.
 Invoking `tools\dev.ps1` directly fails on a default install — see
 `rtl_tests/README.md`.
 
-**This is not `I-01`.** Issue I-01 asks for `rtl/fpga/common/fifo_sync.v` with
-sticky overflow and underflow flags and a high-water mark feeding the CSR
-telemetry — because on a payload that images for one to two minutes a day, a
-dropped sample nobody hears about is worse than a crash. None of that is here.
-Read the issue; don't copy this file into `rtl/fpga/common/` and call it done.
+**This is not a production FIFO.** On the K26 the frame path (`B2.6`) uses
+`xpm_fifo_axis`, with overflow telemetry — because on a payload that images for
+one to two minutes a day, a dropped sample nobody hears about is worse than a
+crash. None of that is here; this file exists to be read.
 
 ---
 
@@ -136,27 +135,28 @@ Not a code change — edit `bench.yaml` and set `synth.budget.luts: 20`:
 ```
 tools/dev synth --only example_fifo
 
-Target: LFE5U-45F-7TG144C  (ECP5 (LFE5U -- no SERDES), TQFP-144)
-[FAIL] examples/example_fifo  LUTs 46  FFs 13  EBRs 0  DSPs 0
-LUTs: 46 used against a budget of 20 (+26). Either optimise, or raise
+Target: XCK26 (Kria K26 SOM)  (Zynq UltraScale+ MPSoC)
+[FAIL] examples/example_fifo  MEASURE_PENDING_LINE
+LUTs: ... used against a budget of 20. Either optimise, or raise
 synth.budget.luts in bench.yaml and say in the pull request what the extra
 area bought.
 ```
 
-Those are real ECP5 cells from `yosys synth_ecp5`, not an estimate.
+Those are real UltraScale+ cells from `yosys synth_xilinx -family xcup`, not an
+estimate. Vivado's own count will differ a little; the gate is there to catch
+a block doubling in size, not to replace the Vivado utilization report.
 
 ---
 
 ## The memory-inference point
 
 `rd_data` is an **asynchronous** read of `mem`, so yosys infers distributed LUT
-RAM — which is why the measured result is 46 LUTs and **0 EBRs**, and why
-`block_ram_blocks: 0` in the manifest is a real assertion rather than a
-formality.
+RAM — which is why the measured result has **0 block RAM**, and why
+`bram18: 0` in the manifest is a real assertion rather than a formality.
 
 That is the right choice at these depths and the wrong one at, say,
-`DEPTH=1024, WIDTH=32`: 32 kbit in LUTs costs roughly a hundred times what the
-same buffer costs in one of the 45F's 108 EBRs. The real `fifo_sync` in `I-01`
-has to infer EBR when it is large, and `tools/dev synth` is how you find out
+`DEPTH=1024, WIDTH=32`: 32 kbit in LUTs costs far more fabric than the same
+buffer in one RAMB36E2. A large FIFO has to land in block RAM, and
+`tools/dev synth` is how you find out
 which one you actually got. A 2 kB buffer that quietly became 16 000 LUTs is a
 classic way to run out of an FPGA in March.

@@ -3,14 +3,14 @@
 # Two stages so the image most people run in their edit/test loop stays small:
 #
 #   sim    iverilog + verilator + cocotb.  Lint and simulation only.
-#   synth  sim + yosys + nextpnr-ecp5.     ECP5 mapping and P&R gate.
+#   synth  sim + yosys.                    UltraScale+ mapping and budget gate.
 #
 # Build the one you need:
 #   docker build -f docker/Dockerfile --target sim   -t utoss-rtl:sim   .
 #   docker build -f docker/Dockerfile --target synth -t utoss-rtl:synth .
 #
-# Everything comes from distribution packages on purpose. Building yosys and
-# nextpnr from source, or pulling oss-cad-suite, would multiply both the image
+# Everything comes from distribution packages on purpose. Building yosys from
+# source, or pulling oss-cad-suite, would multiply both the image
 # size and the "it worked last week" failure modes; apt pins us to one set of
 # versions that every contributor and CI resolve identically for the life of
 # the Ubuntu release.
@@ -75,22 +75,12 @@ CMD ["/bin/bash"]
 # --- synthesis stage ----------------------------------------------------------
 FROM sim AS synth
 
-# yosys alone is enough for the per-module ECP5 mapping and resource gate:
-# `synth_ecp5` maps to real ECP5 cells (TRELLIS_COMB/LUT4, TRELLIS_FF, DP16KD,
-# MULT18X18D), so LUT/FF/BRAM/DSP counts are honest without placing anything.
-# yosys is NOT optional.
+# yosys alone is enough for the per-module mapping and resource gate:
+# `synth_xilinx -family xcup` maps to real UltraScale+ cells (LUT6, FDRE,
+# RAMB36E2, DSP48E2), so LUT/FF/BRAM/DSP counts are honest without placing
+# anything. Placement and timing are Vivado's job on the K26, outside this
+# image. yosys is NOT optional.
 RUN apt-get update && apt-get install -y --no-install-recommends yosys \
-    && rm -rf /var/lib/apt/lists/*
-
-# nextpnr-ecp5 carries the prjtrellis chip database (~100 MB, the bulk of this
-# stage). It is only needed for place-and-route and real timing closure, which
-# we run on the top level rather than per module. Its own layer with a
-# non-fatal fallback: on a distribution where the nextpnr packaging is missing
-# or broken the image still builds, and scripts/run_synth_check.py detects the
-# absence and reports P&R as skipped rather than failing.
-RUN apt-get update \
-    && { apt-get install -y --no-install-recommends nextpnr-ecp5 \
-         || echo 'WARNING: nextpnr-ecp5 unavailable; place-and-route checks will skip'; } \
     && rm -rf /var/lib/apt/lists/*
 
 CMD ["/bin/bash"]

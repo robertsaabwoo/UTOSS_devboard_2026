@@ -29,9 +29,8 @@ MODULE_TEMPLATE = '''`timescale 1ns / 1ps
 
 // {name} -- TODO one line on what this block does.
 //
-// TODO: link the issue this implements, and the section of rtl/RTL_PLAN.md it
-// comes from. A module whose spec lives only in somebody's head is a module
-// nobody else can review.
+// TODO: link the issue this implements (.github/issues/). A module whose spec
+// lives only in somebody's head is a module nobody else can review.
 //
 // Conventions this file must follow (rtl/README.md has the full list):
 //   * one module per file, module name == file name
@@ -54,7 +53,7 @@ module {name} #(
 );
 
   // SCAFFOLD ONLY -- delete this block with the first real logic. It exists so
-  // that the generated module lints clean, maps to real ECP5 cells and passes
+  // that the generated module lints clean, maps to real UltraScale+ cells and passes
   // its bench from the moment it is created.
   always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -111,14 +110,14 @@ synth:
   budget:
     luts: 256
     ff: 256
-    block_ram_blocks: 0
-    dsp_mult_18x18: 0
-  place: false
+    bram18: 0
+    uram: 0
+    dsp: 0
 '''
 
 TEST_TEMPLATE = '''"""cocotb bench for rtl/{module}/{name}.v.
 
-Read rtl_tests/fpga/reg_handshake/test_reg_handshake.py first -- it is the
+Read rtl_tests/examples/reg_handshake/test_reg_handshake.py first -- it is the
 worked example, and it shows the three things that matter here: stay
 width-generic, assert the failure that would actually hurt, and say in the
 assertion message what a failure means for the design.

@@ -5,8 +5,8 @@ preferences — each one is here because breaking it causes a specific, expensiv
 failure on this project. Where a rule is enforced by a tool, the tool is named.
 
 Target part, clock domains and resource ceilings live in
-[`ecp5_target.yaml`](ecp5_target.yaml). What is to be built lives in
-[`RTL_PLAN.md`](RTL_PLAN.md). How to run the checks lives in
+[`target.yaml`](target.yaml). What is to be built lives in the issues under
+[`../.github/issues/`](../.github/issues/). How to run the checks lives in
 [`../rtl_tests/README.md`](../rtl_tests/README.md).
 
 ---
@@ -57,18 +57,19 @@ module pixel_fifo #(
 
 ## 3. Clocks and reset
 
-- Clock and reset names come from `clock_domains` in `ecp5_target.yaml`:
-  `clk_sys`/`rst_sys_n`, `clk_px`/`rst_px_n`, `clk_ddr`/`rst_ddr_n`,
-  `clk_sd`/`rst_sd_n`. A single-domain leaf module may use plain `clk`/`rst_n`.
+- Clock and reset names come from `clock_domains` in `target.yaml`:
+  `clk_sys`/`rst_sys_n`, the PL clock and reset from the Zynq PS. A
+  single-domain leaf module may use plain `clk`/`rst_n`.
 - **Reset is active-low, asynchronously asserted, synchronously released**, one
-  per clock domain, produced by the reset synchronizer in the clock/reset block.
+  per clock domain, produced by the Processor System Reset block in the Vivado
+  design.
   Never cross a reset between domains unsynchronized.
 - Every flop that holds state has a reset value. The FPGA is **power-gated**, so
   every imaging pass starts from a genuine cold start — anything relying on a
   bitstream-initialised value that the design later overwrites will behave
   differently on the first pass than on the rest.
-- No `initial` blocks for reset state. They work in simulation and on ECP5
-  configuration, and they hide exactly the bug above.
+- No `initial` blocks for reset state. They work in simulation and in the FPGA
+  bitstream, and they hide exactly the bug above.
 - One clock per module where possible. A module that needs two clocks is a CDC
   module, and CDC modules come from `rtl/fpga/common/` — not hand-rolled.
 
@@ -79,7 +80,7 @@ fails the build on a warning. In particular:
 
 | Rule | Why |
 |---|---|
-| No inferred latches (`LATCH`) | An ECP5 has no latches worth using; what you get is a routing-dependent timing hazard that simulates perfectly. |
+| No inferred latches (`LATCH`) | What you get is a routing-dependent timing hazard that simulates perfectly. |
 | No implicit width change (`WIDTHEXPAND`, `WIDTHTRUNC`) | Silent truncation of a pixel or an address is invisible until a cube comes back corrupted. |
 | No undriven or multiply-driven nets | Usually a typo or a copy-paste merge of two `always` blocks. |
 | No combinational loops (`UNOPTFLAT`) | Will not route, and the error from the back end is unreadable. |
@@ -90,8 +91,8 @@ Other rules, enforced in review:
 - `always @(posedge clk ...)` blocks use **non-blocking** (`<=`) assignment
   only. Combinational `always @(*)` blocks use **blocking** (`=`) only.
 - No logic on a clock. No gated clocks — gate the **enable**, not the clock.
-  (Clock gating on an ECP5 means `DCCA`/`CLKDIVF` primitives and belongs in the
-  clock block, nowhere else.)
+  (Clock gating on UltraScale+ means `BUFGCE` primitives and belongs in the
+  Vivado block design, nowhere else.)
 - No asynchronous feedback, no latch-based handshakes.
 - State machines: `localparam` state encodings, one `always` block for the state
   register and one for next-state logic, and a `default:` arm that returns to a
@@ -129,10 +130,10 @@ there costs a week.
 
 ## 6. Clock domain crossings
 
-- **Use the shared primitives.** `rtl/fpga/common/` owns the two-flop
-  synchronizer, the async FIFO, and the pulse-to-handshake crosser. Do not write
-  a fourth version. At least four clock domains are in play and every
-  hand-rolled synchronizer is a separate place for a metastability bug to hide.
+- **Use the Xilinx XPM macros** (`xpm_cdc_single`, `xpm_cdc_pulse`,
+  `xpm_cdc_async_rst`, `xpm_fifo_async`, `xpm_fifo_axis`), wrapped in
+  `rtl/fpga/common/`. Do not hand-roll a synchronizer: every one is a separate
+  place for a metastability bug to hide.
 - Never synchronize a multi-bit bus with parallel two-flop synchronizers. Use
   the async FIFO, or a handshake around a held value.
 - Every crossing is annotated in the timing constraints. An unconstrained
@@ -141,18 +142,21 @@ there costs a week.
   Knowing that a cube dropped pixels is far more useful than silently
   corrupting a capture that cannot be re-taken.
 
-## 7. ECP5-specific rules
+## 7. K26 (Zynq UltraScale+) rules
 
-- Target is **`LFE5U-45F-7TG144C`** (see `ecp5_target.yaml`). The LFE5U has **no
-  SERDES** — anything needing a serialiser is built out of `IDDRX`/`ODDRX`
-  primitives and a PLL phase shift, by hand.
-- Vendor primitives (`EHXPLLL`, `DP16KD`, `IDDRX1F`, `MULT18X18D`, …) are
+- Target is the **Kria K26 SOM** (see `target.yaml`), developed on a KV260. The
+  ARM cores own the camera, DDR and storage; the fabric gets data through AXI
+  DMA and an AXI-Stream slot. Do not write RTL for something the PS already
+  does.
+- Vendor primitives and XPM macros (`xpm_*`, `RAMB36E2`, `DSP48E2`, …) are
   allowed, but **only inside a wrapper module in `rtl/fpga/common/`** whose
   interface is plain Verilog. A primitive sprinkled through the datapath makes
-  the module unsimulatable in Icarus and unportable if the part changes.
+  the module unsimulatable in Icarus and unlintable in Verilator.
 - Infer memory, do not instantiate it, unless you need a mode inference cannot
-  express. `scripts/run_synth_check.py` fails if a memory ends up as flops
-  instead of an EBR, because that is how a 2 kB buffer becomes 16 000 LUTs.
+  express. Check what you got with `tools/dev synth`: a large buffer should land
+  in block RAM, not LUTs, because that is how a 2 kB buffer becomes 16 000 LUTs.
+- The CI synthesis gate is yosys `synth_xilinx`, a resource proxy. Timing and
+  the real build are Vivado's; the block design is checked in as Tcl.
 - Every module declares a **resource budget** in its `bench.yaml`, and CI holds
   it to it. Exceeding the budget is a decision somebody makes in a pull request,
   with a reason — not something that happens quietly over a term.
@@ -162,12 +166,12 @@ there costs a week.
 1. The module, following everything above.
 2. A `bench.yaml` and a cocotb bench under `rtl_tests/<module>/<name>/`, with
    at least two parameter sets, that fails against a plausibly-broken DUT.
-3. `tools/dev all` passing: lint, simulation, and the ECP5 mapping and budget
+3. `tools/dev all` passing: lint, simulation, and the UltraScale+ mapping and budget
    check.
 4. `status: ready` in `bench.yaml`. A pull request into `main` runs the test
    runner with `--strict`, where `wip` is itself a failure.
 5. A short block comment at the top of the module naming the issue it
-   implements and the item in `RTL_PLAN.md` it comes from.
+   implements (for example `B2.6`).
 
 Scaffold all of this with:
 

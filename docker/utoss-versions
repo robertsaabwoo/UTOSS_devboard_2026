@@ -11,8 +11,3 @@ if command -v yosys >/dev/null 2>&1; then
 else
     echo 'yosys: not in this image (build --target synth)'
 fi
-if command -v nextpnr-ecp5 >/dev/null 2>&1; then
-    nextpnr-ecp5 --version 2>&1 | head -1
-else
-    echo 'nextpnr-ecp5: not installed (place-and-route checks will skip)'
-fi
