@@ -14,7 +14,7 @@ on:
 jobs:
   changes:
     name: Detect changed modules
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       power: ${{ steps.filter.outputs.power }}
       fpga: ${{ steps.filter.outputs.fpga }}
@@ -23,7 +23,7 @@ jobs:
       supervisor: ${{ steps.filter.outputs.supervisor }}
       run_all: ${{ steps.gate.outputs.run_all }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # paths-filter needs history to diff against base/before
 
@@ -49,7 +49,7 @@ jobs:
       # would only see the most recent push, so a module changed in an earlier
       # commit on the same branch would stop being re-checked on later pushes.
       # It also breaks on a branch's first push, where `before` is the null SHA.
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -85,9 +85,9 @@ jobs:
     name: "power / Schematic ERC"
     needs: changes
     if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.power == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Run twice on purpose: capture every severity for the artifact first, so
       # the report still uploads when the gate below fails.
@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload ERC report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: erc-report
           path: erc_out/erc.json
@@ -123,9 +123,9 @@ jobs:
     name: "power / SPICE sweep verification"
     needs: changes
     if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.power == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install ngspice
         run: |
@@ -146,9 +146,9 @@ jobs:
     name: "power / Power budget & bring-up rules"
     needs: changes
     if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.power == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Python deps
         run: pip install pyyaml
@@ -160,9 +160,9 @@ jobs:
     name: "fpga / Logic-level cross-check"
     needs: changes
     if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.fpga == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Python deps
         run: pip install pyyaml
@@ -174,9 +174,9 @@ jobs:
     name: "uart_io / Logic-level cross-check"
     needs: changes
     if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.uart_io == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Python deps
         run: pip install pyyaml
@@ -188,9 +188,9 @@ jobs:
     name: "camera / Logic-level cross-check"
     needs: changes
     if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.camera == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Python deps
         run: pip install pyyaml
@@ -202,9 +202,9 @@ jobs:
     name: "supervisor / Logic-level cross-check"
     needs: changes
     if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.supervisor == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Python deps
         run: pip install pyyaml

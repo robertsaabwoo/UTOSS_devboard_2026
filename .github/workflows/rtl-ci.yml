@@ -23,13 +23,13 @@ concurrency:
 jobs:
   changes:
     name: Detect RTL changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       rtl: ${{ steps.filter.outputs.rtl }}
       run_all: ${{ steps.gate.outputs.run_all }}
       strict: ${{ steps.gate.outputs.strict }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # paths-filter needs history to diff against the base
 
@@ -58,7 +58,7 @@ jobs:
             echo "strict=" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -80,13 +80,13 @@ jobs:
     name: Build toolchain image
     needs: changes
     if: needs.changes.outputs.run_all == 'true' || needs.changes.outputs.rtl == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Build and cache
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
@@ -101,12 +101,12 @@ jobs:
   lint:
     name: "rtl / Lint (verilator)"
     needs: [changes, image]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
@@ -125,12 +125,12 @@ jobs:
   sim:
     name: "rtl / cocotb simulation"
     needs: [changes, image]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
@@ -174,7 +174,7 @@ jobs:
 
       - name: Upload simulation logs and results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rtl-sim-results
           path: |
@@ -187,12 +187,12 @@ jobs:
   synth:
     name: "rtl / UltraScale+ synthesis & resource budget"
     needs: [changes, image]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
@@ -218,7 +218,7 @@ jobs:
 
       - name: Upload synthesis logs and netlists
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rtl-synth-results
           path: |

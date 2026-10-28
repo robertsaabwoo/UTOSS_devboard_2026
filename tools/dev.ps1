@@ -48,12 +48,15 @@ function Test-Image {
 }
 
 function Invoke-InContainer {
-    param([string[]]$Arguments)
+    param([string[]]$Arguments, [switch]$Interactive)
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         Write-Error "docker not found. Install Docker Desktop, or run the tools directly from a shell where iverilog/verilator/yosys/cocotb are on PATH."
     }
     if (-not (Test-Image)) { Build-Image }
-    $runArgs = @("run", "--rm", "-v", "$($RepoRoot):/work", "-w", "/work", $Image) + $Arguments
+    $runArgs = @("run", "--rm")
+    # Without -it, `shell` starts bash with no terminal and it exits at once.
+    if ($Interactive) { $runArgs += "-it" }
+    $runArgs += @("-v", "$($RepoRoot):/work", "-w", "/work", $Image) + $Arguments
     Invoke-Checked "docker" $runArgs
 }
 
@@ -66,7 +69,7 @@ switch ($Command) {
     "list"     { Invoke-InContainer (@("python3", "scripts/rtl_bench.py") + $Rest) }
     "new"      { Invoke-InContainer (@("python3", "scripts/new_module.py") + $Rest) }
     "versions" { Invoke-InContainer @("utoss-versions") }
-    "shell"    { Invoke-InContainer @("/bin/bash") }
+    "shell"    { Invoke-InContainer @("/bin/bash") -Interactive }
     "all" {
         Invoke-InContainer @("python3", "scripts/lint_rtl.py")
         Invoke-InContainer (@("python3", "scripts/run_rtl_tests.py") + $Rest)

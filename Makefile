@@ -15,7 +15,15 @@
 #
 # On Windows without Git Bash or WSL, use tools\dev.ps1 instead.
 ARGS ?=
-DEV  := ./tools/dev
+
+# A native Windows make (winget's, or GnuWin) runs recipes through cmd.exe even
+# when started from Git Bash, and cmd.exe cannot run ./tools/dev. OS is set to
+# Windows_NT in every Windows shell, Git Bash included; inside WSL it is not.
+ifeq ($(OS),Windows_NT)
+DEV := tools\dev.cmd
+else
+DEV := ./tools/dev
+endif
 
 .PHONY: all sim waves lint synth shell list image rebuild versions help
 
