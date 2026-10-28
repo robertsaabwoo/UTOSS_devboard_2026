@@ -1,0 +1,30 @@
+# GitHub milestones, one per Build of the Drive plan
+# ("PAY FPGA BOARD Project Milestones").
+#   python3 scripts/sync_issues.py --milestones --apply
+# Titles must match the `milestone:` field in .github/issues/*.md exactly.
+# Add `due_on: 2027-01-31` (a date) to a milestone once the date is agreed.
+
+- title: "Build 1: Foundations"
+  description: >-
+    Tools working, test data streaming on a Kria KV260, K26 chosen and OBC
+    interface agreed, CCSDS 123 path decided.
+
+- title: "Build 2: Interfaces proven; custom board designed"
+  description: >-
+    Replayed frames flow through the fabric to storage on the KV260, and the
+    carrier board passes the January 2027 design review.
+
+- title: "Build 3: Custom board brought up"
+  description: >-
+    The carrier powers up, each interface works on its own, the real camera
+    replaces the loader on the KV260, and CCSDS 123 runs in hardware.
+
+- title: "Build 4: End-to-end and final demo"
+  description: >-
+    CCSDS 123 compressed passes run end to end on the carrier, and the board is
+    handed to UTAT (final demo May 2027).
+
+- title: "After Build 4: space-grade PAY board"
+  description: >-
+    For visibility only. A new PCB with a focused form factor, sturdier
+    components and fault protection, built on the lessons from the bench board.

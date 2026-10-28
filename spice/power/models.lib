@@ -1,0 +1,25 @@
+* Behavioral regulator macromodel for CI verification.
+* This is NOT a vendor part model — it's an ideal voltage source (VSET) in
+* series with an output resistance (RS) that stands in for load regulation,
+* so we can assert "does this rail land in spec under load" in CI before a
+* real IC is chosen. Swap for a real vendor SPICE model once the regulators
+* are selected, and update io_specs/power.yaml accordingly.
+*
+* LINEREG (default 0.0, i.e. perfect line regulation) optionally models
+* imperfect line regulation: effective setpoint drifts LINEREG volts per
+* volt of VIN deviation from the nominal 12V input. Lets the CI line sweep
+* (io_specs/power.yaml `sweeps:`) exercise something real instead of a
+* no-op axis.
+*
+* EFF (default 1.0) makes the converter actually LOAD ITS INPUT. Without it,
+* Eout is a voltage-controlled source that draws no input current, so a
+* cascaded tree (12V -> 5V -> 1.1V) would show the intermediate rail holding
+* perfectly no matter how hard the downstream rails are loaded — the cascade
+* would be verified in name only. Bin reflects Pout/EFF back onto VIN, which
+* is what makes a droop on +1V1 show up as a droop on +5V.
+.subckt REG VIN GND VOUT PARAMS: VSET=5.0 RS=0.01 LINEREG=0.0 EFF=1.0
+Eout VOUT_IDEAL GND VALUE = {VSET + LINEREG*(V(VIN,GND)-12)}
+Rout VOUT_IDEAL VOUT_S {RS}
+Vsense VOUT_S VOUT DC 0
+Bin VIN GND I = V(VOUT,GND)*i(Vsense)/(EFF*V(VIN,GND))
+.ends REG

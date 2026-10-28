@@ -1,0 +1,111 @@
+# Single source of truth for the synthesis target.
+#
+# Every tool that needs to know what part we are building for reads this file:
+# scripts/run_synth_check.py (yosys/nextpnr flags), the per-module resource
+# budgets, and the CI summary. Change the part here, nowhere else.
+#
+# NOTE ON THE PART CHANGE: io_specs/fpga.yaml still describes an LFE5U-25F.
+# The RTL targets the 45F because the resource budget in rtl/RTL_PLAN.md does
+# not close on 24k LUTs. Reconciling the two is tracked as issue D-02; until
+# that lands, this file is authoritative for RTL and io_specs/fpga.yaml is
+# authoritative for the schematic, and they disagree on purpose rather than by
+# accident.
+
+device:
+  part_number: LFE5U-45F-7TG144C
+  family: ECP5 (LFE5U -- no SERDES)
+  package: TQFP-144
+  speed_grade: -7
+  temperature_grade: Commercial
+
+  # Tool identifiers. These are what the open-source flow actually wants and
+  # they are not the same string as the part number.
+  yosys_synth_command: synth_ecp5
+  nextpnr_device_flag: "--45k"       # nextpnr-ecp5 speaks in LUT-count classes
+  nextpnr_package: CABGA381          # PLACEHOLDER -- see open_items/nextpnr-package
+
+# Device capacity. The budget gate in scripts/run_synth_check.py measures each
+# module against its own per-module budget, and the sum of those budgets
+# against these totals.
+#
+# CONFIDENCE: transcribed from the ECP5 family selection table, NOT verified
+# line by line against FPGA-DS-02012. Treat as planning figures and confirm
+# before anyone makes an architectural decision on headroom -- see
+# open_items/confirm-device-resources.
+resources:
+  luts: 44000
+  ff: 44000                # one FF per slice-half, tracks LUT count
+  block_ram_blocks: 108    # 18 kbit EBR each
+  block_ram_bits: 1944000  # ~237 KiB
+  dsp_mult_18x18: 72
+  plls: 4
+  user_io_tqfp144: 98
+
+# Fraction of the device CI will let the sum of all module budgets reach before
+# it fails. Routing and timing on an ECP5 degrade sharply in the last quarter of
+# the part, and we have an SEU story (TMR on critical FSMs) that will want room.
+utilization_ceiling:
+  luts: 0.75
+  ff: 0.75
+  block_ram_blocks: 0.80
+  dsp_mult_18x18: 0.90
+
+# Clock domains the design is expected to have. Benches and the timing script
+# both read these names; keep RTL port names consistent with them.
+clock_domains:
+  - name: sys
+    port: clk_sys
+    reset: rst_sys_n
+    target_mhz: 100
+    notes: Main datapath and CSR domain.
+  - name: px
+    port: clk_px
+    reset: rst_px_n
+    target_mhz: 75
+    notes: >
+      Camera pixel clock, sourced from the camera (source-synchronous), NOT
+      from a PLL we own. Frequency is a camera property -- PLACEHOLDER until
+      io_specs/fpga.yaml open_items/dcmi-bus-parameters resolves.
+  - name: ddr
+    port: clk_ddr
+    reset: rst_ddr_n
+    target_mhz: 100
+    notes: >
+      DDR3 controller user-interface clock. litedram generates this; the
+      frequency follows whatever memory speed grade is fitted.
+  - name: sd
+    port: clk_sd
+    reset: rst_sd_n
+    target_mhz: 50
+    notes: SD/SDIO interface clock. 400 kHz during card init, then full rate.
+
+open_items:
+  - id: nextpnr-package
+    status: UNCONFIRMED
+    question: >
+      nextpnr_package above is CABGA381, which does NOT match the TQFP-144
+      package in device.package. nextpnr-ecp5's package name for TQFP-144
+      needs to be confirmed against the installed chipdb
+      (`nextpnr-ecp5 --45k --list-packages` or the prjtrellis database) before
+      any place-and-route result is believed. A P&R run against the wrong
+      package produces plausible-looking timing numbers for a part we are not
+      building. Only affects `synth.place: true` benches; the per-module
+      yosys mapping gate does not use it.
+
+  - id: confirm-device-resources
+    status: UNCONFIRMED
+    question: >
+      Confirm luts / block_ram_blocks / dsp_mult_18x18 / plls for
+      LFE5U-45F against FPGA-DS-02012 Table 1.1, and confirm how many of the
+      PLLs are actually reachable in TQFP-144. The clock plan in
+      clock_domains needs three or four PLL outputs; if TQFP-144 exposes
+      fewer PLLs than the die has, that is a design constraint discovered
+      very late.
+
+  - id: pin-compatibility-45f-vs-25f
+    status: UNCONFIRMED
+    question: >
+      LFE5U-45F-7TG144C exists, so the 25F -> 45F move keeps the TQFP-144
+      footprint. Confirm from Lattice's official pinout CSV that the two
+      parts are pin-for-pin identical in TQFP-144 (bank boundaries included,
+      not just power and ground) before the PCB is routed. Tracked by D-02.
