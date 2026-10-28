@@ -10,7 +10,7 @@
 device:
   som: Kria K26C (commercial)
   part_number: xck26-sfvc784-2LV-c
-  family: Zynq UltraScale+ MPSoC (EV: quad A53, dual R5F, VCU)
+  family: "Zynq UltraScale+ MPSoC (EV: quad A53, dual R5F, VCU)"
   package: SFVC784
   speed_grade: -2LV
   temperature_grade: Commercial (0 to 85 C junction)
