@@ -7,7 +7,7 @@ runs here and in CI. Nothing else to register, no CI file to edit.
 
     python3 scripts/run_rtl_tests.py                 # everything
     python3 scripts/run_rtl_tests.py --module fpga    # one module group
-    python3 scripts/run_rtl_tests.py --only dcmi_rx   # one bench
+    python3 scripts/run_rtl_tests.py --only frame_crc   # one bench
     python3 scripts/run_rtl_tests.py --strict         # wip counts as a failure
 
 Why this exists rather than a Makefile per bench: a per-bench Makefile has to

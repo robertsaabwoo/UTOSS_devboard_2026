@@ -2,11 +2,11 @@
 # in Git Bash or WSL. Same commands, same container:
 #
 #   .\tools\dev.ps1 sim
-#   .\tools\dev.ps1 sim --only dcmi_rx
+#   .\tools\dev.ps1 sim --only frame_crc
 #   .\tools\dev.ps1 lint
 #   .\tools\dev.ps1 synth
 #   .\tools\dev.ps1 all
-#   .\tools\dev.ps1 new fpga dcmi_rx
+#   .\tools\dev.ps1 new fpga frame_crc
 #   .\tools\dev.ps1 shell
 #
 # Set $env:UTOSS_PIP_TRUSTED_HOST = "pypi.org files.pythonhosted.org" first if

@@ -1,7 +1,7 @@
-# Running and writing RTL tests
+﻿# Running and writing RTL tests
 
 **The whole contract: drop a directory containing a `bench.yaml` and a cocotb
-testbench under `rtl_tests/<module>/<name>/`, and it runs — locally and in CI.**
+testbench under `rtl_tests/<module>/<name>/`, and it runs â€” locally and in CI.**
 There is no CI file to edit, no list to add yourself to, and no Makefile to
 write.
 
@@ -18,7 +18,7 @@ it is cached.
 > which means `Restricted`, so `.	ools\dev.ps1` fails with
 > `UnauthorizedAccess: running scripts is disabled on this system`. The `.cmd`
 > wrapper is not a PowerShell script, so it runs regardless, and it launches
-> `dev.ps1` with a bypass scoped to that one child process — no machine or user
+> `dev.ps1` with a bypass scoped to that one child process â€” no machine or user
 > setting is changed.
 >
 > In Git Bash or WSL, use `tools/dev` (or `make sim` / `make all`). All three
@@ -27,8 +27,8 @@ it is cached.
 ```bash
 tools/dev all                      # lint + simulate + synthesise: what CI runs
 tools/dev sim                      # every bench
-tools/dev sim --only dcmi_rx       # one bench
-tools/dev sim --only dcmi_rx --param-set narrow
+tools/dev sim --only frame_crc     # one bench
+tools/dev sim --only frame_crc --param-set narrow
 tools/dev sim --waves              # keep waveforms under build/rtl/...
 tools/dev sim --verbose            # stream simulator output
 tools/dev lint                     # verilator lint over all RTL
@@ -88,9 +88,9 @@ harness exists to prevent.
 
 | | Runs? | Failure is fatal? |
 |---|---|---|
-| `ready` | yes | yes — everywhere |
+| `ready` | yes | yes â€” everywhere |
 | `wip` | yes | on a feature branch, no (reported loudly); on a pull request into `main`, **yes**, and `wip` itself fails |
-| `blocked` | no | n/a — listed in the summary with its reason |
+| `blocked` | no | n/a â€” listed in the summary with its reason |
 
 So `wip` lets a half-written module live on a branch without turning CI red, and
 cannot leak into `main`.
@@ -102,13 +102,13 @@ cannot leak into `main`.
 Scaffold it:
 
 ```bash
-tools/dev new fpga dcmi_rx
+tools/dev new fpga frame_crc
 ```
 
-That writes `rtl/fpga/dcmi_rx.v`, `rtl_tests/fpga/dcmi_rx/bench.yaml` and
-`rtl_tests/fpga/dcmi_rx/test_dcmi_rx.py`, all of which already pass. Then read
+That writes `rtl/fpga/frame_crc.v`, `rtl_tests/fpga/frame_crc/bench.yaml` and
+`rtl_tests/fpga/frame_crc/test_frame_crc.py`, all of which already pass. Then read
 [`examples/reg_handshake/test_reg_handshake.py`](examples/reg_handshake/test_reg_handshake.py)
-— it is the worked example.
+â€” it is the worked example.
 
 ### Shared helpers
 
@@ -139,7 +139,7 @@ from utoss_tb import (
    happy path passes against a broken DUT. For this payload that means: what
    happens on a short or malformed frame, when a FIFO fills, when a transfer is
    stalled mid-beat, when reset arrives mid-transaction, when a counter wraps.
-   The imaging pass is one to two minutes a day and cannot be re-taken — a
+   The imaging pass is one to two minutes a day and cannot be re-taken â€” a
    silent corruption is worse than a crash.
 
 3. **Apply backpressure and gaps.** `StreamSource(..., backpressure=0.3)` and
@@ -149,7 +149,7 @@ from utoss_tb import (
 
 4. **Say what a failure means.** Assertion messages are read by whoever broke
    the build six weeks from now, and "expected 60 got 0" tells them nothing.
-   Write "data_out re-latched while busy — write handshake corrupted
+   Write "data_out re-latched while busy â€” write handshake corrupted
    mid-transaction".
 
 ### Running one bench by hand
@@ -164,6 +164,6 @@ make -f ../../common/cocotb.mk \
     VERILOG_SOURCES=/work/rtl/examples/reg_handshake.v
 ```
 
-Note that `make` on its own **exits 0 even when testcases fail** — which is why
+Note that `make` on its own **exits 0 even when testcases fail** â€” which is why
 `scripts/run_rtl_tests.py` reads `results.xml` instead of trusting the exit code,
 and why it treats "no testcases at all" as a failure too.

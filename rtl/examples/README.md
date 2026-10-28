@@ -9,7 +9,7 @@ what does it take to land one?"
 | Module | [`example_fifo.v`](example_fifo.v) |
 | Manifest | [`../../rtl_tests/examples/example_fifo/bench.yaml`](../../rtl_tests/examples/example_fifo/bench.yaml) |
 | Bench | [`../../rtl_tests/examples/example_fifo/test_example_fifo.py`](../../rtl_tests/examples/example_fifo/test_example_fifo.py) |
-| Measured | MEASURE_PENDING at `WIDTH=8, DEPTH=16` |
+| Measured | 31 LUTs, 13 FFs, 0 BRAM18, 0 URAM, 0 DSP at `WIDTH=8, DEPTH=16` (yosys `synth_xilinx -family xcup`) |
 | Status | 7 tests × 4 parameter sets = 28 cases, all green |
 
 ```bash
@@ -135,9 +135,9 @@ Not a code change — edit `bench.yaml` and set `synth.budget.luts: 20`:
 ```
 tools/dev synth --only example_fifo
 
-Target: XCK26 (Kria K26 SOM)  (Zynq UltraScale+ MPSoC)
-[FAIL] examples/example_fifo  MEASURE_PENDING_LINE
-LUTs: ... used against a budget of 20. Either optimise, or raise
+Target: xck26-sfvc784-2LV-c  (Zynq UltraScale+ MPSoC (EV: quad A53, dual R5F, VCU))
+[FAIL] examples/example_fifo  LUTs 31  FFs 13  BRAM18 0  URAM 0  DSPs 0
+LUTs: 31 used against a budget of 20 (+11). Either optimise, or raise
 synth.budget.luts in bench.yaml and say in the pull request what the extra
 area bought.
 ```

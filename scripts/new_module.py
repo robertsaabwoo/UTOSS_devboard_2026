@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Scaffold a new RTL module and its bench so it is already wired into CI.
 
-    python3 scripts/new_module.py fpga dcmi_rx
-    tools/dev new fpga dcmi_rx            # same thing, inside the container
+    python3 scripts/new_module.py fpga frame_crc
+    tools/dev new fpga frame_crc            # same thing, inside the container
 
 Creates:
     rtl/<module>/<name>.v                  module skeleton
@@ -167,7 +167,7 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("module", help="module group, e.g. fpga")
-    parser.add_argument("name", help="module name, lower_snake_case, e.g. dcmi_rx")
+    parser.add_argument("name", help="module name, lower_snake_case, e.g. frame_crc")
     parser.add_argument("--force", action="store_true",
                         help="overwrite existing files")
     args = parser.parse_args()

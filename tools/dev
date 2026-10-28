@@ -2,12 +2,12 @@
 # One entry point for the RTL flow, locally and in CI.
 #
 #   tools/dev sim                    run every cocotb bench
-#   tools/dev sim --only dcmi_rx     run one bench
+#   tools/dev sim --only frame_crc   run one bench
 #   tools/dev sim --waves            keep waveforms (build/rtl/<...>/sim_build)
 #   tools/dev lint                   verilator lint over all RTL
 #   tools/dev synth                  map to UltraScale+ and check the budgets
 #   tools/dev all                    lint, then sim, then synth -- what CI runs
-#   tools/dev new fpga dcmi_rx       scaffold a module and its bench
+#   tools/dev new fpga frame_crc     scaffold a module and its bench
 #   tools/dev shell                  interactive shell in the container
 #   tools/dev versions               print the toolchain versions
 #   tools/dev build                  (re)build the container image

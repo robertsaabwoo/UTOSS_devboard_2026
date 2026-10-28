@@ -9,7 +9,7 @@
 #   make image        (re)build the container image
 #
 # Pass extra arguments through ARGS:
-#   make sim ARGS="--only dcmi_rx --waves"
+#   make sim ARGS="--only frame_crc --waves"
 #
 # On Windows without Git Bash or WSL, use tools\dev.ps1 instead.
 ARGS ?=

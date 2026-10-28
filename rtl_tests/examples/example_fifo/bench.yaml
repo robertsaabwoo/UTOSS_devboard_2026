@@ -63,7 +63,7 @@ synth:
   top: example_fifo
   param_set: default
   # Measured, not guessed. `tools/dev synth --only example_fifo` reports the
-  # count at WIDTH=8, DEPTH=16 (13 flops: wr_ptr 4 + rd_ptr 4 + count 5; the
+  # count at WIDTH=8, DEPTH=16 (31 LUTs, 13 flops: wr_ptr 4 + rd_ptr 4 + count 5; the
   # 128-bit memory is LUT RAM, not flops). Budgets are set just above that, so
   # a change which doubles the area becomes a decision somebody makes in a pull
   # request, with a reason, instead of something that happens quietly over a
@@ -79,8 +79,8 @@ synth:
   # block RAM instead, this gate would catch it. See the memory-inference note
   # in the module header for why that direction matters too.
   budget:
-    luts: 70
-    ff: 25
+    luts: 40
+    ff: 20
     bram18: 0
     uram: 0
     dsp: 0
