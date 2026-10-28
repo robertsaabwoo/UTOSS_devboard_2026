@@ -21,12 +21,13 @@ Keep what is vendor-neutral; retire the rest.
 
 ## Done when
 
-- [ ] The synthesis job is replaced by either Yosys `synth_xilinx` as a rough
-      resource check (runs on free GitHub runners) or Vivado on a self-hosted
-      runner. Record which and why.
+- [x] The synthesis job is replaced by Yosys `synth_xilinx -family xcup` as a
+      resource check, because it runs on free GitHub runners; Vivado owns
+      placement and timing. Target in `rtl/target.yaml`.
 - [ ] Lint and cocotb cope with Xilinx primitives (`xpm_*`, AXI IP), through
-      simulation stubs or by linting only our own modules.
-- [ ] ECP5-only files are removed or moved to `archive/`.
+      simulation stubs or by linting only our own modules. Needed before the
+      first module that instantiates an XPM macro (B1.5).
+- [x] ECP5-only files are moved to `archive/ecp5/` (see its README).
 - [ ] Once B2.4 starts, `kicad-ci` points at the new carrier schematic and its
       push and pull_request triggers are restored.
 

@@ -139,8 +139,11 @@ def run_yosys(bench, build: pathlib.Path, target: dict) -> tuple:
         commands.append("chparam -set %s %s %s" % (name, value, bench.synth["top"]))
     # -noiopad / -noclkbuf: a bench top is a leaf module inside the Vivado
     # design, not the chip boundary, so no I/O buffers or BUFGs belong in it.
-    commands.append("%s -noiopad -noclkbuf -top %s -json %s"
-                    % (synth_command, bench.synth["top"], json_out))
+    # The netlist is written separately: synth_xilinx in yosys 0.33 has no
+    # -json option, unlike synth_ecp5.
+    commands.append("%s -noiopad -noclkbuf -top %s"
+                    % (synth_command, bench.synth["top"]))
+    commands.append("write_json %s" % json_out)
     commands.append("stat -top %s" % bench.synth["top"])
     # check -assert is the gate; it exits non-zero on a real structural problem.
     commands.append("check -assert")
