@@ -43,16 +43,16 @@ without Git Bash or WSL, use `.\tools\dev.ps1 sim`.
 ### Waveforms
 
 ```bash
-make waves ARGS="--only example_fifo"                       # every param set
-make waves ARGS="--only example_fifo --param-set minimal"   # just one
+make waves ARGS="--only reg_handshake"                       # every param set
+make waves ARGS="--only reg_handshake --param-set narrow"    # just one
 ```
 
 `make waves` is `make sim` with `--waves`. Each bench and parameter set gets
 its own dump, and the runner prints the path:
 
 ```
-[run]     examples/example_fifo[minimal]
-          waves: build/rtl/examples/example_fifo/minimal/sim_build/example_fifo.fst
+[run]     examples/reg_handshake[narrow]
+          waves: build/rtl/examples/reg_handshake/narrow/sim_build/reg_handshake.fst
 ```
 
 Open it with [GTKWave](https://gtkwave.sourceforge.net/) (`gtkwave <file>.fst`)
@@ -62,7 +62,7 @@ narrow it with `--only`.
 
 If you ask for waves and no dump appears, the bench **fails** rather than
 passing quietly. CI checks this on every run, and each CI run's
-`rtl-sim-results` artifact includes the example FIFO's dump, so you can see
+`rtl-sim-results` artifact includes the reference bench's dump, so you can see
 what one looks like without installing anything.
 
 Outputs land in `build/` (git-ignored): `results.xml`, `sim.log` and the
