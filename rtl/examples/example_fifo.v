@@ -4,12 +4,11 @@
 // example_fifo -- a synchronous FIFO, written as the worked example of this
 // repository's RTL conventions. Demo and teaching material; NOT flight RTL.
 //
-// It is deliberately simpler than the real thing. Issue I-01 asks for
-// rtl/fpga/common/fifo_sync.v with sticky overflow/underflow flags and a
-// high-water mark feeding the CSR telemetry, because on a payload that images
-// for one minute a day an unreported dropped sample is worse than a crash.
-// None of that is here. Do not copy this file into rtl/fpga/common/ and call
-// I-01 done -- read the issue.
+// It is not a part to reuse. On the K26 a payload FIFO is AMD's xpm_fifo_axis
+// (see issue B2.6), and the payload also wants what this lacks: overflow and
+// underflow flags that are reported, because on a payload that images for one
+// minute a day an unreported dropped sample is worse than a crash. Do not copy
+// this file into rtl/fpga/ -- read it for the conventions, then read the issue.
 //
 // What it does demonstrate, and what every module in rtl/fpga/ must also do
 // (full list in rtl/README.md):

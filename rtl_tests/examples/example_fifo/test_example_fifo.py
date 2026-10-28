@@ -139,7 +139,7 @@ async def test_write_while_full_is_dropped_not_destructive(dut):
     This is the assertion that matters most. A FIFO that overwrites its oldest
     entry under pressure loses data with no symptom at all -- the capture looks
     successful and the cube is wrong. Dropping the new write is recoverable
-    (the real fifo_sync counts it, per I-01); corrupting a queued entry is not.
+    (a payload FIFO should also count it); corrupting a queued entry is not.
     """
     dut.wr_en.value = 0
     dut.rd_en.value = 0
