@@ -342,6 +342,11 @@ def main() -> int:
               "a pull request into main):")
         for outcome in soft_failures:
             print("  - %s: %s" % (outcome.label, outcome.detail))
+        # Not "PASSED": with every run red, that line reads as a lie. The exit
+        # code is still 0, which is the point of wip.
+        print("\nRTL SIMULATION: NO HARD FAILURES, %d WIP RUN(S) FAILING"
+              % len(soft_failures))
+        return 0
 
     print("\nRTL SIMULATION PASSED")
     return 0
