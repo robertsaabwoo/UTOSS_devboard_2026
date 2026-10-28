@@ -22,6 +22,27 @@
   color: "c5def5"
   description: Touches the schematic, pinout or part selection
 
+- name: software
+  color: "0052cc"
+  description: Code on the ARM cores (loader, camera library, Linux)
+- name: space-grade
+  color: "000000"
+  description: After Build 4 -- toward the flight PAY board; not started yet
+
+# --- stream (the three parallel streams of the Drive milestone plan) -----
+- name: "stream:camera"
+  color: "fef2c0"
+  description: ARM side -- test data, loader, camera library, real camera
+- name: "stream:hardware"
+  color: "fef2c0"
+  description: Carrier board -- power, peripherals around the K26 SOM
+- name: "stream:rtl"
+  color: "fef2c0"
+  description: Verilog in the FPGA fabric
+- name: "stream:all"
+  color: "fef2c0"
+  description: Shared work across streams
+
 # --- area ---------------------------------------------------------------
 - name: "area:infrastructure"
   color: "bfdadc"

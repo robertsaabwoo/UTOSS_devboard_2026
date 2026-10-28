@@ -1,24 +1,41 @@
-# RTL work breakdown
+# Work breakdown: Kria K26 plan
 
-The specification for every piece of RTL to be written, one file per issue. These
-are files first and GitHub issues second: the specification belongs in the
-repository, next to the code, where it is reviewable in a pull request and still
-readable in two years.
+One file per issue, following the Drive document *PAY FPGA BOARD Project
+Milestones*. These are files first and GitHub issues second: the specification
+belongs in the repository, where it is reviewable in a pull request.
 
 Push them to GitHub with:
 
 ```bash
-python3 scripts/sync_issues.py --labels --apply   # create the labels first
-python3 scripts/sync_issues.py                    # dry run: what would be created
-python3 scripts/sync_issues.py --apply            # create the missing issues
+python3 scripts/sync_issues.py --labels --milestones --apply   # labels and milestones first
+python3 scripts/sync_issues.py                                 # dry run: what would be created
+python3 scripts/sync_issues.py --apply                         # create the missing issues
 ```
 
 Matching is by exact title (including the `[ID]` prefix) across open and closed
 issues, so re-running is safe. Bodies are only overwritten with `--update-bodies`.
 
-Editing an issue? **Edit the file and re-run the sync.** An issue edited only on
-GitHub drifts from the repository, and the repository is what a new contributor
-reads.
+Editing an issue? **Edit the file and re-run the sync.**
+
+---
+
+## The plan
+
+The board is a carrier for an AMD **Kria K26** SOM (Zynq UltraScale+), developed
+first on a **KV260** kit. The ARM cores run Linux and handle the USB 3.0 camera
+and storage; the fabric handles the frame path and CCSDS 123 compression.
+
+Each build runs three streams in parallel, which are the `stream:` labels:
+
+| Stream | What |
+|---|---|
+| **Camera** | ARM side: test data, replay loader, camera library, then the real camera over USB 3.0 |
+| **Hardware** | The carrier board: power and peripherals around the SOM |
+| **RTL** | Verilog in the FPGA fabric |
+| **All** | Shared work |
+
+Dates: design in Fall 2026, **design review January 2027**, fabrication February,
+testing through Winter 2027, **final demo May 2027**.
 
 ---
 
@@ -26,118 +43,92 @@ reads.
 
 | If you are | Start with |
 |---|---|
-| New to the project, writing Verilog | `I-01` — the CDC and FIFO primitives. Everything depends on them and they teach the conventions and the test flow. |
-| Happier in Python than Verilog | `V-01` (the CCSDS golden model) or `V-02` (the camera model). Both are unblocked and both unblock several RTL issues. |
-| Looking for the highest-leverage thing open right now | `V-01`. It is on the critical path for `CMP-01`, `CMP-02`, `CMP-03`, `CMP-04`, `V-03`, `D-04` and `DP-06`, and it is blocked on nothing. |
-| Able to settle a decision | `D-01` (camera interface), `D-02` (45F reconciliation), `D-05` (CSR map). All three block RTL. |
-
-Read [`../../rtl/README.md`](../../rtl/README.md) before writing any module, and
-[`../../rtl_tests/README.md`](../../rtl_tests/README.md) before writing any bench.
-`tools/dev new fpga <name>` scaffolds a module and a bench that already run in CI.
+| Anyone, first week | `B1.1`: toolchain installed and a blinky on the KV260 |
+| Writing Verilog | `B1.5`: AXI DMA loopback. Every later RTL milestone plugs into it |
+| Happier in Python or on Linux | `B1.2` (test data) then `B1.3` (replay loader) |
+| On the hardware team | `B1.4`: choose the K26, block diagram, OBC interface |
+| Able to talk to UTAT | `B1.2` (confirm camera, rate, interface) and `B1.6` (request the SHyLoC licence now) |
 
 ---
 
 ## The issues
 
-### Decisions — these block other work
+### Build 1: Foundations
 
-| ID | Title | Blocks |
+| ID | Stream | Milestone |
 |---|---|---|
-| `D-01` | Camera interface: Camera Link vs GigE vs parallel | `DP-02`, `DP-03`, `C-03`, the pinout |
-| `D-02` | Retarget on LFE5U-45F; reconcile io_specs with the RTL target | every resource budget, `I-03` |
-| `D-03` | Cube memory layout in DDR3 | `MEM-03`, `CMP-01` |
-| `D-04` | SD interface: SPI vs SDIO, and the offload timing budget | `ST-01`, `ST-02` |
-| `D-05` | Freeze the CSR map as a machine-readable contract | `C-01`, supervisor firmware |
+| `B1.1` | All | Tools installed, repo and tracker set up, blinky on the KV260 |
+| `B1.2` | Camera | Test data set and data budget agreed with UTAT |
+| `B1.3` | Camera | Replay loader: 2-min pass with zero drops |
+| `B1.4` | Hardware | K26 chosen, carrier block diagram, BOM v0, OBC interface v0 |
+| `B1.5` | RTL | AXI DMA loopback, 1 GB round trip |
+| `B1.6` | RTL | CCSDS 123 groundwork: reference, mapping, licence, SHyLoC vs HLS |
+| `B1.7` | All | Build 1 review with UTAT |
+| `INF-01` | All | Retarget CI and the repo from the ECP5 to the K26 |
 
-### Infrastructure
+### Build 2: Interfaces proven; custom board designed
 
-| ID | Title |
-|---|---|
-| `I-01` | CDC and FIFO primitive library |
-| `I-02` | Clock/reset infrastructure and cold-start sequencer |
-| `I-03` | Pin constraints, CDC timing exceptions, top-level P&R gate |
+| ID | Stream | Milestone |
+|---|---|---|
+| `B2.1` | Camera | Loader becomes a documented library |
+| `B2.2` | Camera | Live pipeline with replayed data through the fabric to storage |
+| `B2.3` | Hardware | Breadboard MCU, load switches, SOM power sequence |
+| `B2.4` | Hardware | Carrier schematic and review |
+| `B2.5` | Hardware | Carrier layout; **January design review**; boards ordered |
+| `B2.6` | RTL | AXI-Stream frame path with header and CRC |
+| `B2.7` | RTL | CCSDS 123 bit-exact in simulation |
 
-### Control
+### Build 3: Custom board brought up
 
-| ID | Title |
-|---|---|
-| `C-01` | SPI slave + CSR block (replaces the `reg_handshake` placeholder) |
-| `C-02` | Parameterized UART core |
-| `C-03` | Camera control UART master |
-| `C-04` | Debug console UART |
-| `C-05` | Health, telemetry and SEU mitigation |
+| ID | Stream | Milestone |
+|---|---|---|
+| `B3.1` | Hardware | Bring-up: rails, MCU, Linux, JTAG |
+| `B3.2` | Hardware | Each interface tested on its own |
+| `B3.3` | Camera | Real camera behind the library, 2-min live pass |
+| `B3.4` | RTL | CCSDS 123 in the fabric, bit-exact on 10 passes |
+| `B3.5` | All | Power measured, errata collected |
 
-### Datapath
+### Build 4: End-to-end and final demo
 
-| ID | Title |
-|---|---|
-| `DP-01` | Parallel camera receiver (DCMI-style) |
-| `DP-02` | Camera Link 7:1 deserializer — **blocked on `D-01`** |
-| `DP-03` | GigE Vision receiver — **blocked on `D-01`** |
-| `DP-04` | Frame framer and pixel unpacker |
-| `DP-05` | Input CDC FIFO with overflow telemetry |
-| `DP-06` | Sensor correction |
+| ID | Stream | Milestone |
+|---|---|---|
+| `B4.1` | Hardware | Rework rev A, repeat bring-up |
+| `B4.2` | RTL | CCSDS 123 inline on the carrier with CRC per segment |
+| `B4.3` | All | End to end: capture, compress, store, read out over OBC |
+| `B4.4` | All | Soak: 10 passes plus a USB cable pull |
+| `B4.5` | All | Documentation and final demo to UTAT |
 
-### Memory
+### After Build 4: space-grade PAY board (visibility only)
 
-| ID | Title |
-|---|---|
-| `MEM-01` | DDR3 controller integration (litedram) — **do not write the PHY** |
-| `MEM-02` | Multi-port DDR3 arbiter |
-| `MEM-03` | Cube address generator and ring-buffer manager |
-
-### Compression — the actual IP value
-
-| ID | Title |
-|---|---|
-| `CMP-01` | CCSDS 123.0-B adaptive predictor |
-| `CMP-02` | CCSDS 121.0-B / sample-adaptive entropy coder |
-| `CMP-03` | Bit packer / stuffer |
-| `CMP-04` | CCSDS Space Packet / TM frame assembly and CRC |
-
-### Storage
-
-| ID | Title |
-|---|---|
-| `ST-01` | SD writer in SPI mode, raw blocks plus an index |
-| `ST-02` | 4-bit SDIO upgrade — **blocked on `D-04`** |
-
-### Integration
-
-| ID | Title |
-|---|---|
-| `INT-01` | `payload_top`, capture FSM, and the FSM diagram set |
-
-### Verification
-
-| ID | Title |
-|---|---|
-| `V-01` | CCSDS 123 golden software model and bit-exact harness |
-| `V-02` | Camera model BFM with fault injection |
-| `V-03` | Full-chain bit-exact round trip |
-| `V-04` | DDR3 and SD card simulation models |
+`A.1` flight parts, `A.2` fault protection, `A.3` form factor, `A.4`
+environment, `A.5` EMC, `A.6` timing.
 
 ---
 
 ## Rough critical path
 
 ```
-V-01 ──────────────────────────────> CMP-01 ─> CMP-02 ─> CMP-03 ─> CMP-04 ─┐
-                                        ^                                   │
-D-03 ──> MEM-03 ───────────────────────-┘                                   │
-          ^                                                                 │
-I-01 ─> I-02 ─> MEM-01 ─> MEM-02 ──────-┘                                   ├─> INT-01 ─> V-03
-  │                                                                         │
-  ├─> D-05 ─> C-01 ────────────────────────────────────────────────────────-┤
-  │                                                                         │
-  └─> DP-01 ─> DP-04 ─> DP-05 ──────────────────────────────────────────────┤
-       ^                                                                    │
-D-01 ──┘                                             D-04 ─> ST-01 ────────-┘
+B1.1 -> B1.5 ------------------------------> B2.6 --+
+B1.2 -> B1.6 (licence!) -------------------> B2.7 --+--> B3.4 -> B4.2 --+
+B1.2 -> B1.3 -> B2.1 -> B2.2                        |                   |
+                  +---------------------------> B3.3 --+                +--> B4.3 -> B4.4 -> B4.5
+B1.4 -> B2.3 -> B2.4 -> B2.5 (Jan review) -> B3.1 -> B3.2 -> B3.5 -> B4.1 --+
 ```
 
-`V-01`, `V-02`, `I-01`, `D-01`, `D-02`, `D-03`, `D-05` are all unblocked and can
-start in parallel today. `CMP-01` and `MEM-*` are roughly 80 % of the remaining
-work after that (`rtl/RTL_PLAN.md` "Risks").
+The hardware stream holds the only hard date: the January design review, since
+fabrication follows in February. The SHyLoC licence request in `B1.6` is the
+other long lead; send it in the first weeks.
+
+---
+
+## The superseded ECP5 plan
+
+The earlier breakdown targeted a Lattice ECP5 with a hand-written DDR3
+controller, SD writer, camera receivers and CCSDS 123 core. It is kept in
+[`_superseded/`](_superseded/) for its specifications, which several new issues
+reuse (each new issue names the files it draws on). The sync script ignores that
+folder, and the matching GitHub issues are closed as not planned with a pointer
+to their replacement.
 
 ---
 
@@ -145,16 +136,17 @@ work after that (`rtl/RTL_PLAN.md` "Risks").
 
 ```markdown
 ---
-id: I-01
+id: B1.5
 title: "RTL: short description without the ID prefix"
-labels: [rtl, P0, "area:infrastructure", "size:M"]
-depends_on: [D-02]
-milestone: "optional"
+labels: ["stream:rtl", rtl, P0, "size:M"]
+milestone: "Build 1: Foundations"
+depends_on: [B1.1]
 ---
 
 Markdown body.
 ```
 
-`id` and `title` are required. The sync script renders `depends_on` into the issue
-body as readable references, warns about a dependency no file declares, and refuses
-duplicate ids.
+`id` and `title` are required. `milestone` must match a title in
+`.github/milestones.yml`. The sync script renders `depends_on` into the issue
+body as readable references, warns about a dependency no file declares, and
+refuses duplicate ids.

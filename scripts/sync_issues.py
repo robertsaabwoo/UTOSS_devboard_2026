@@ -7,6 +7,7 @@ in GitHub. This pushes them up.
 
     python3 scripts/sync_issues.py                 # dry run: say what it would do
     python3 scripts/sync_issues.py --labels        # create/update labels only
+    python3 scripts/sync_issues.py --milestones    # create/update milestones only
     python3 scripts/sync_issues.py --apply         # create the missing issues
     python3 scripts/sync_issues.py --apply --update-bodies
                                                    # also push edited bodies
@@ -34,6 +35,7 @@ except ImportError:
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 ISSUE_DIR = REPO_ROOT / ".github" / "issues"
 LABEL_FILE = REPO_ROOT / ".github" / "labels.yml"
+MILESTONE_FILE = REPO_ROOT / ".github" / "milestones.yml"
 
 
 class IssueFile:
@@ -163,6 +165,39 @@ def sync_labels(apply_changes: bool) -> None:
             print("  " + (result.stdout or "").strip())
 
 
+def sync_milestones(apply_changes: bool) -> None:
+    if not MILESTONE_FILE.is_file():
+        print("no %s, skipping milestones" % MILESTONE_FILE.name)
+        return
+    milestones = yaml.safe_load(MILESTONE_FILE.read_text(encoding="utf-8")) or []
+    existing = {}
+    if apply_changes:
+        # gh has no `milestone` subcommand, so go through the REST API.
+        result = gh("api", "--paginate", "repos/{owner}/{repo}/milestones?state=all")
+        existing = {row["title"]: row for row in json.loads(result.stdout or "[]")}
+    for milestone in milestones:
+        title = milestone["title"]
+        fields = ["-f", "title=" + title,
+                  "-f", "description=" + milestone.get("description", "")]
+        if milestone.get("due_on"):
+            # GitHub wants a timestamp; a bare date in the YAML is the due day.
+            fields += ["-f", "due_on=%sT23:59:59Z" % milestone["due_on"]]
+        if not apply_changes:
+            print("would ensure milestone: %s" % title)
+            continue
+        # Same idempotence as labels: create, or update the description in place.
+        if title in existing:
+            command = ["api", "-X", "PATCH", "repos/{owner}/{repo}/milestones/%d"
+                       % existing[title]["number"]] + fields
+        else:
+            command = ["api", "repos/{owner}/{repo}/milestones"] + fields
+        result = gh(*command, check=False)
+        status = "ok" if result.returncode == 0 else "FAILED"
+        print("milestone %-50s %s" % (title, status))
+        if result.returncode != 0:
+            print("  " + (result.stdout or "").strip())
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -170,6 +205,8 @@ def main() -> int:
                         help="actually create issues (default is a dry run)")
     parser.add_argument("--labels", action="store_true",
                         help="sync labels from .github/labels.yml")
+    parser.add_argument("--milestones", action="store_true",
+                        help="sync milestones from .github/milestones.yml")
     parser.add_argument("--update-bodies", action="store_true",
                         help="overwrite the body of issues that already exist")
     parser.add_argument("--only", help="only the issue with this id, e.g. I-01")
@@ -206,9 +243,12 @@ def main() -> int:
         if not files:
             sys.exit("no issue file with id %r" % args.only)
 
-    if args.labels:
+    if args.labels or args.milestones:
         require_gh() if args.apply else None
-        sync_labels(args.apply)
+        if args.labels:
+            sync_labels(args.apply)
+        if args.milestones:
+            sync_milestones(args.apply)
         if not args.apply:
             print("\n(dry run -- re-run with --apply)")
         return 0

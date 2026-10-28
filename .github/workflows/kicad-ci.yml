@@ -1,8 +1,9 @@
 name: kicad-ci
 
-# Paused while the RTL work is the focus: the schematic has no connectivity yet
-# (H-01, 13 ERC errors), so this would only ever be red. Run it by hand from the
-# Actions tab; restore the push / pull_request triggers once H-01 is fixed.
+# Paused: hardware/devboard.kicad_sch was the ECP5 board and has no connectivity
+# (13 ERC errors), so this would only ever be red. Run it by hand from the
+# Actions tab; point it at the K26 carrier schematic and restore the push /
+# pull_request triggers once B2.4 starts (see INF-01).
 on:
   workflow_dispatch:
   # push:
