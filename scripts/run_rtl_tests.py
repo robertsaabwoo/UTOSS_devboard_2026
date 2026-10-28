@@ -117,20 +117,16 @@ def run_one(bench, param_set, waves=False, verbose=False) -> RunOutcome:
         "TOPLEVEL=%s" % bench.toplevel,
         "TOPLEVEL_LANG=verilog",
         "MODULE=%s" % bench.testbench,
+        "VERILOG_SOURCES=%s" % " ".join(str(p) for p in bench.sources),
         "SIM_BUILD=%s" % (build / "sim_build"),
         "COCOTB_RESULTS_FILE=%s" % results,
+        "COMPILE_ARGS=%s" % " ".join(compile_args(bench, param_set)),
     ]
     if waves:
+        # rtl_tests/common/cocotb.mk explains why WAVES needs help from there.
         command.append("WAVES=1")
 
     env = dict(os.environ)
-    # VERILOG_SOURCES and COMPILE_ARGS go through the environment, NOT the make
-    # command line. A command-line variable overrides every `+=` inside the
-    # makefile, and cocotb's WAVES=1 support works by appending to exactly
-    # these two (a generated $dumpfile module and `-s` for it). Passed on the
-    # command line, --waves silently produced no waveform.
-    env["VERILOG_SOURCES"] = " ".join(str(p) for p in bench.sources)
-    env["COMPILE_ARGS"] = " ".join(compile_args(bench, param_set))
     # The bench directory first so `import utoss_tb` resolves to the shared
     # helpers, and a bench-local module can still shadow one deliberately.
     env["PYTHONPATH"] = os.pathsep.join(
@@ -181,7 +177,7 @@ def run_one(bench, param_set, waves=False, verbose=False) -> RunOutcome:
                 bench, param_set.name, "fail", seconds=elapsed, log=log_path,
                 detail=("--waves was requested but no .fst/.vcd was written "
                         "under %s. The waveform plumbing is broken; see the "
-                        "comment above VERILOG_SOURCES in run_one()."
+                        "WAVES block in rtl_tests/common/cocotb.mk and sim.log."
                         % build.relative_to(REPO_ROOT).as_posix()))
         for dump in dumps:
             print("          waves: %s" % dump.relative_to(REPO_ROOT).as_posix())

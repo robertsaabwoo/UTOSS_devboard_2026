@@ -184,15 +184,12 @@ The runner is the gate, but when you want raw simulator output:
 ```bash
 tools/dev shell
 cd rtl_tests/examples/reg_handshake
-VERILOG_SOURCES=/work/rtl/examples/reg_handshake.v \
 make -f ../../common/cocotb.mk \
-    TOPLEVEL=reg_handshake MODULE=test_reg_handshake WAVES=1
+    TOPLEVEL=reg_handshake MODULE=test_reg_handshake WAVES=1 \
+    VERILOG_SOURCES=/work/rtl/examples/reg_handshake.v
 ```
 
-Set `VERILOG_SOURCES` (and `COMPILE_ARGS`, if you need one) as environment
-variables, not as `make` arguments. cocotb's waveform support appends to both,
-and a value given on the `make` command line silently overrides the append, so
-`WAVES=1` would write nothing.
+The dump lands in `sim_build/reg_handshake.fst`.
 
 Note that `make` on its own **exits 0 even when testcases fail** — which is why
 `scripts/run_rtl_tests.py` reads `results.xml` instead of trusting the exit code,
