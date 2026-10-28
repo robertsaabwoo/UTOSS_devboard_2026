@@ -8,9 +8,19 @@
 # first on a KV260. The ECP5 target this replaces is in archive/ecp5/rtl/.
 
 device:
-  part_number: XCK26 (Kria K26 SOM)
-  family: Zynq UltraScale+ MPSoC
+  som: Kria K26C (commercial)
+  part_number: xck26-sfvc784-2LV-c
+  family: Zynq UltraScale+ MPSoC (EV: quad A53, dual R5F, VCU)
+  package: SFVC784
+  speed_grade: -2LV
+  temperature_grade: Commercial (0 to 85 C junction)
   dev_kit: KV260
+
+  # Vivado identifiers. Use these in every project and block-design Tcl so the
+  # board presets (PS DDR, MIO, clocks) match the SOM. The board part needs the
+  # Kria board files installed (Vivado: Tools > Vivado Store > Boards).
+  vivado_part: xck26-sfvc784-2LV-c
+  vivado_board_part: xilinx.com:kv260_som:part0:1.4   # VERIFY the version against the installed board files
 
   # Tool identifier. The CI gate is yosys `synth_xilinx`, which maps to real
   # UltraScale+ cells (LUT6, FDRE, RAMB36E2, DSP48E2) and so gives honest
@@ -53,6 +63,20 @@ clock_domains:
       are on the PS side, so there is no fabric pixel, DDR or SD clock.
 
 open_items:
+  - id: som-grade
+    status: OPEN
+    question: >
+      K26C (commercial, xck26-sfvc784-2LV-c, matches the KV260) or K26I
+      (industrial, xck26-sfvc784-2LV-i, -40 to 100 C junction). Decided in B1.4;
+      the industrial grade is the likelier fit for A.1. Fabric resources are the
+      same either way, so only part_number and vivado_part change.
+
+  - id: board-file-version
+    status: UNCONFIRMED
+    question: >
+      Confirm the kv260_som board part version against the board files that
+      come with the Vivado release chosen in B1.1, and fix vivado_board_part.
+
   - id: confirm-device-resources
     status: UNCONFIRMED
     question: >
