@@ -23,8 +23,8 @@ is the CI result.
 ```bash
 make all                                    # lint + simulate + synthesise: exactly what CI runs
 make sim                                    # every testbench, at every parameter set
-make sim   ARGS="--only example_fifo"       # one testbench
-make waves ARGS="--only example_fifo"       # same, plus an .fst waveform per run
+make sim   ARGS="--only reg_handshake"      # one testbench
+make waves ARGS="--only reg_handshake"      # same, plus an .fst waveform per run
 make lint                                   # Verilator lint over all RTL
 make synth                                  # map to UltraScale+ and check resource budgets
 make shell                                  # a shell inside the container
@@ -35,12 +35,19 @@ about two minutes.
 
 Results land in `build/` (not committed). The runner prints each waveform's path,
 for example
-`build/rtl/examples/example_fifo/minimal/sim_build/example_fifo.fst`. Open it in
+`build/rtl/examples/reg_handshake/default/sim_build/reg_handshake.fst`. Open it in
 [GTKWave](https://gtkwave.sourceforge.net/) or [Surfer](https://surfer-project.org/).
 
 Windows works from Git Bash, PowerShell or cmd: `make` picks the right wrapper.
 Without make, use `tools\dev.cmd all` (Windows) or `tools/dev all`
 (Linux, macOS, WSL).
+
+## New here? Start with the FIFO exercise
+
+[`rtl/examples/fifo.v`](rtl/examples/fifo.v) is an empty FIFO with its spec and
+a ready-made set of tests. Write it until `make sim ARGS="--only fifo"` passes.
+Step-by-step instructions are in
+[`rtl/examples/README.md`](rtl/examples/README.md).
 
 ## Writing a module
 
@@ -67,9 +74,10 @@ Read these first:
 - [`rtl_tests/README.md`](rtl_tests/README.md) covers how benches work, the
   `bench.yaml` fields, the shared test helpers and what makes a test worth
   having.
-- [`rtl/examples/`](rtl/examples/) and
-  [`rtl_tests/examples/`](rtl_tests/examples/) hold a fully worked FIFO and its
-  bench.
+- [`rtl/examples/`](rtl/examples/) holds the FIFO exercise and
+  `reg_handshake`, a deliberately trivial register the harness uses as its
+  self-test. Neither is a starting point for any issue: the payload RTL is
+  yours to write.
 
 ## What CI checks
 
@@ -80,7 +88,7 @@ that touches RTL, tests or tooling:
 |---|---|---|
 | **Lint** | `verilator --lint-only -Wall` on every module, each as its own top | latches, width mismatches, undriven or multiply-driven signals, combinational loops, or an `rtl/` file no bench compiles |
 | **Simulation** | every cocotb bench, once per `param_set` | any test fails, a bench produces no tests, a parameter override did not apply, or a simulation hangs |
-| **Waveforms** | the example FIFO with `--waves` | no `.fst` is written; the dump is attached to the run for download |
+| **Waveforms** | the reference bench with `--waves` | no `.fst` is written; the dump is attached to the run for download |
 | **Synthesis** | `yosys synth_xilinx -family xcup` per module | a module exceeds its LUT / FF / BRAM / URAM / DSP budget in `bench.yaml` |
 
 Benches marked `status: wip` may fail on a feature branch without turning CI red,

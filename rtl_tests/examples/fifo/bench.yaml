@@ -1,0 +1,49 @@
+# Bench for the FIFO exercise, rtl/examples/fifo.v. You do not need to edit
+# this file. Field reference: rtl_tests/README.md
+name: fifo
+
+# exercise: rtl/examples/fifo.v ships empty, and every student writes their
+# own. Until yours is right the runner reports the failing tests as "not done
+# yet (exercise)" -- never as a build failure, here or in CI. When every run
+# says `pass`, you are done.
+status: exercise
+
+toplevel: fifo
+testbench: test_fifo
+
+sources:
+  - rtl/examples/fifo.v
+
+param_sets:
+  - name: default
+    params:
+      WIDTH: 8
+      DEPTH: 16
+  # Smallest legal size: full and empty are one write apart.
+  - name: minimal
+    params:
+      WIDTH: 1
+      DEPTH: 2
+  - name: wide
+    params:
+      WIDTH: 32
+      DEPTH: 8
+
+timeout_seconds: 120
+
+lint:
+  enabled: true
+  waivers: []
+
+synth:
+  enabled: true
+  top: fifo
+  param_set: default
+  # Generous until there is a measured number: run `make synth ARGS="--only
+  # fifo"` after writing it, then tighten these to just above what it reports.
+  budget:
+    luts: 200
+    ff: 200
+    bram18: 0
+    uram: 0
+    dsp: 0

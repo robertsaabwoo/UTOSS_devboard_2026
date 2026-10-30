@@ -38,7 +38,7 @@ class RunOutcome:
                  seconds=0.0, log=None):
         self.bench = bench
         self.param_set = param_set
-        self.state = state          # pass | fail | blocked | wip-fail
+        self.state = state          # pass | fail | blocked | wip-fail | exercise-fail
         self.detail = detail
         self.testcases = testcases
         self.seconds = seconds
@@ -214,7 +214,7 @@ def summary_table(outcomes):
     header = ("| Bench | Params | Status | Tests | Time | Detail |\n"
               "|---|---|---|---|---:|---|\n")
     icon = {"pass": "pass", "fail": "FAIL", "wip-fail": "FAIL (wip)",
-            "blocked": "blocked"}
+            "exercise-fail": "not done yet (exercise)", "blocked": "blocked"}
     rows = []
     for outcome in outcomes:
         detail = outcome.detail.replace("|", "\\|").replace("\n", " ")
@@ -280,14 +280,18 @@ def main() -> int:
                 continue
             print("[run]     %s/%s[%s] %s"
                   % (bench.module, bench.name, param_set.name,
-                     "(wip)" if bench.status == "wip" else ""))
+                     "(%s)" % bench.status
+                     if bench.status in ("wip", "exercise") else ""))
             try:
                 outcome = run_one(bench, param_set, waves=args.waves,
                                   verbose=args.verbose)
             except BenchError as exc:
                 outcome = RunOutcome(bench, param_set.name, "fail", detail=str(exc))
-            if outcome.state == "fail" and bench.status == "wip" and not args.strict:
-                outcome.state = "wip-fail"
+            if outcome.state == "fail":
+                if bench.status == "exercise":
+                    outcome.state = "exercise-fail"
+                elif bench.status == "wip" and not args.strict:
+                    outcome.state = "wip-fail"
             outcomes.append(outcome)
             print("          -> %s  %d test(s)  %.1fs%s"
                   % (outcome.state, outcome.testcases, outcome.seconds,
@@ -301,7 +305,8 @@ def main() -> int:
         return 1
 
     hard_failures = [o for o in outcomes if o.state == "fail"]
-    soft_failures = [o for o in outcomes if o.state == "wip-fail"]
+    soft_failures = [o for o in outcomes
+                     if o.state in ("wip-fail", "exercise-fail")]
     blocked = [o for o in outcomes if o.state == "blocked"]
     passed = [o for o in outcomes if o.state == "pass"]
 
@@ -315,7 +320,7 @@ def main() -> int:
             handle.write("## RTL simulation\n\n" + table + "\n")
 
     print("\n" + table)
-    print("%d passed, %d failed, %d wip-failed, %d blocked"
+    print("%d passed, %d failed, %d wip/exercise not passing yet, %d blocked"
           % (len(passed), len(hard_failures), len(soft_failures), len(blocked)))
 
     if args.strict:
@@ -338,10 +343,15 @@ def main() -> int:
         return 1
 
     if soft_failures:
-        print("\nWIP benches failed (not fatal on this branch; they will block "
-              "a pull request into main):")
+        print("\nNot passing yet (not fatal; a wip bench will block a pull "
+              "request into main until it is `ready`, an exercise never does):")
         for outcome in soft_failures:
             print("  - %s: %s" % (outcome.label, outcome.detail))
+        # Not "PASSED": with every run red, that line reads as a lie. The exit
+        # code is still 0, which is the point of wip and exercise.
+        print("\nRTL SIMULATION: NO HARD FAILURES, %d RUN(S) NOT PASSING YET"
+              % len(soft_failures))
+        return 0
 
     print("\nRTL SIMULATION PASSED")
     return 0

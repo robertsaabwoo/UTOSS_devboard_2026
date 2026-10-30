@@ -162,7 +162,7 @@ jobs:
           docker run --rm \
             -v "${{ github.workspace }}:/work" -w /work \
             utoss-rtl:synth \
-            python3 scripts/run_rtl_tests.py --only example_fifo --param-set minimal --waves
+            python3 scripts/run_rtl_tests.py --only reg_handshake --param-set default --waves
 
       # Outside the container's view of GITHUB_STEP_SUMMARY, so copy it across.
       - name: Publish summary

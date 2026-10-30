@@ -46,8 +46,8 @@ Target part, clock domains and resource ceilings live in
   quietly testing the default three times.
 
 ```verilog
-module pixel_fifo #(
-    parameter integer WIDTH = 14,
+module my_block #(
+    parameter integer WIDTH = 16,
     parameter integer DEPTH = 1024
 ) (
     ...

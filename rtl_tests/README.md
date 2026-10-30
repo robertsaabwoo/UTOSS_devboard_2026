@@ -43,16 +43,16 @@ without Git Bash or WSL, use `.\tools\dev.ps1 sim`.
 ### Waveforms
 
 ```bash
-make waves ARGS="--only example_fifo"                       # every param set
-make waves ARGS="--only example_fifo --param-set minimal"   # just one
+make waves ARGS="--only reg_handshake"                       # every param set
+make waves ARGS="--only reg_handshake --param-set narrow"    # just one
 ```
 
 `make waves` is `make sim` with `--waves`. Each bench and parameter set gets
 its own dump, and the runner prints the path:
 
 ```
-[run]     examples/example_fifo[minimal]
-          waves: build/rtl/examples/example_fifo/minimal/sim_build/example_fifo.fst
+[run]     examples/reg_handshake[narrow]
+          waves: build/rtl/examples/reg_handshake/narrow/sim_build/reg_handshake.fst
 ```
 
 Open it with [GTKWave](https://gtkwave.sourceforge.net/) (`gtkwave <file>.fst`)
@@ -62,7 +62,7 @@ narrow it with `--only`.
 
 If you ask for waves and no dump appears, the bench **fails** rather than
 passing quietly. CI checks this on every run, and each CI run's
-`rtl-sim-results` artifact includes the example FIFO's dump, so you can see
+`rtl-sim-results` artifact includes the reference bench's dump, so you can see
 what one looks like without installing anything.
 
 Outputs land in `build/` (git-ignored): `results.xml`, `sim.log` and the
@@ -89,7 +89,7 @@ reference:
 | Field | Required | Meaning |
 |---|---|---|
 | `name` | no | Label in logs and summaries. Defaults to the directory name. |
-| `status` | no | `ready` (default), `wip` or `blocked`. See below. |
+| `status` | no | `ready` (default), `wip`, `exercise` or `blocked`. See below. |
 | `blocked_reason` | if blocked | Why. A bench switched off without a stated reason stays off forever. |
 | `toplevel` | **yes** | Verilog module instantiated as the simulation top. |
 | `testbench` | **yes** | Python module in this directory holding the `@cocotb.test()` coroutines. |
@@ -115,10 +115,14 @@ harness exists to prevent.
 |---|---|---|
 | `ready` | yes | yes — everywhere |
 | `wip` | yes | on a feature branch, no (reported loudly); on a pull request into `main`, **yes**, and `wip` itself fails |
+| `exercise` | yes | never: failures show as `not done yet (exercise)`, even on a pull request into `main` |
 | `blocked` | no | n/a — listed in the summary with its reason |
 
 So `wip` lets a half-written module live on a branch without turning CI red, and
-cannot leak into `main`.
+cannot leak into `main`. `exercise` is only for a template that every student
+fills in themselves and that stays empty on `main` (the FIFO in
+[`rtl/examples/`](../rtl/examples/README.md)). Do not use it for payload
+modules: a payload module that never has to pass is not tested.
 
 ---
 

@@ -3,7 +3,7 @@ rem Windows entry point that does not care about PowerShell execution policy.
 rem
 rem   tools\dev.cmd sim --module examples
 rem   tools\dev.cmd lint
-rem   tools\dev.cmd synth --only example_fifo
+rem   tools\dev.cmd synth --only reg_handshake
 rem   tools\dev.cmd all
 rem
 rem A fresh Windows shell has every execution-policy scope Undefined, which
