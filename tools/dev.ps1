@@ -42,15 +42,29 @@ function Build-Image {
     Invoke-Checked "docker" $buildArgs
 }
 
+# Through cmd.exe so docker's stderr never reaches PowerShell: with
+# ErrorActionPreference=Stop, PowerShell 5.1 turns any native stderr line into a
+# terminating error, which is how "Docker is not running" used to surface as an
+# unreadable NativeCommandError about a named pipe.
+function Test-Docker {
+    cmd /c "docker info >nul 2>&1"
+    return ($LASTEXITCODE -eq 0)
+}
+
 function Test-Image {
-    docker image inspect $Image *> $null
+    cmd /c "docker image inspect $Image >nul 2>&1"
     return ($LASTEXITCODE -eq 0)
 }
 
 function Invoke-InContainer {
     param([string[]]$Arguments, [switch]$Interactive)
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-        Write-Error "docker not found. Install Docker Desktop, or run the tools directly from a shell where iverilog/verilator/yosys/cocotb are on PATH."
+        Write-Host "docker not found. Install Docker Desktop (https://www.docker.com/products/docker-desktop/), then run this again."
+        exit 1
+    }
+    if (-not (Test-Docker)) {
+        Write-Host "Docker is installed but not running. Start Docker Desktop, wait until it says it is running, then run this again."
+        exit 1
     }
     if (-not (Test-Image)) { Build-Image }
     $runArgs = @("run", "--rm")

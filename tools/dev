@@ -72,6 +72,11 @@ run() {
         echo "iverilog/verilator/yosys/cocotb from your PATH instead." >&2
         exit 1
     fi
+    if ! docker info >/dev/null 2>&1; then
+        echo "Docker is installed but not running. Start Docker Desktop (or the" >&2
+        echo "docker service), wait until it is up, then run this again." >&2
+        exit 1
+    fi
     image_exists || build_image
     in_container "$@"
 }
