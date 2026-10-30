@@ -89,7 +89,7 @@ reference:
 | Field | Required | Meaning |
 |---|---|---|
 | `name` | no | Label in logs and summaries. Defaults to the directory name. |
-| `status` | no | `ready` (default), `wip` or `blocked`. See below. |
+| `status` | no | `ready` (default), `wip`, `exercise` or `blocked`. See below. |
 | `blocked_reason` | if blocked | Why. A bench switched off without a stated reason stays off forever. |
 | `toplevel` | **yes** | Verilog module instantiated as the simulation top. |
 | `testbench` | **yes** | Python module in this directory holding the `@cocotb.test()` coroutines. |
@@ -115,10 +115,14 @@ harness exists to prevent.
 |---|---|---|
 | `ready` | yes | yes — everywhere |
 | `wip` | yes | on a feature branch, no (reported loudly); on a pull request into `main`, **yes**, and `wip` itself fails |
+| `exercise` | yes | never: failures show as `not done yet (exercise)`, even on a pull request into `main` |
 | `blocked` | no | n/a — listed in the summary with its reason |
 
 So `wip` lets a half-written module live on a branch without turning CI red, and
-cannot leak into `main`.
+cannot leak into `main`. `exercise` is only for a template that every student
+fills in themselves and that stays empty on `main` (the FIFO in
+[`rtl/examples/`](../rtl/examples/README.md)). Do not use it for payload
+modules: a payload module that never has to pass is not tested.
 
 ---
 

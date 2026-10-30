@@ -20,7 +20,10 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 BENCH_DIR = REPO_ROOT / "rtl_tests"
 TARGET_FILE = REPO_ROOT / "rtl" / "target.yaml"
 
-STATUSES = ("ready", "wip", "blocked")
+# exercise: a template every student fills in themselves (rtl/examples/fifo.v).
+# It runs and reports, but its failures are never fatal -- not even under
+# --strict -- because on main it is empty on purpose, forever.
+STATUSES = ("ready", "wip", "exercise", "blocked")
 
 TOP_LEVEL_KEYS = {
     "name", "status", "blocked_reason", "toplevel", "testbench", "sources",

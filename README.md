@@ -42,6 +42,13 @@ Windows works from Git Bash, PowerShell or cmd: `make` picks the right wrapper.
 Without make, use `tools\dev.cmd all` (Windows) or `tools/dev all`
 (Linux, macOS, WSL).
 
+## New here? Start with the FIFO exercise
+
+[`rtl/examples/fifo.v`](rtl/examples/fifo.v) is an empty FIFO with its spec and
+a ready-made set of tests. Write it until `make sim ARGS="--only fifo"` passes.
+Step-by-step instructions are in
+[`rtl/examples/README.md`](rtl/examples/README.md).
+
 ## Writing a module
 
 ```bash
@@ -67,10 +74,10 @@ Read these first:
 - [`rtl_tests/README.md`](rtl_tests/README.md) covers how benches work, the
   `bench.yaml` fields, the shared test helpers and what makes a test worth
   having.
-- [`rtl/examples/`](rtl/examples/) holds one deliberately trivial register,
-  `reg_handshake`, which exists so the harness has something to run. It shows
-  the shape of a module and its bench, and is not a starting point for any
-  issue: the payload RTL is yours to write.
+- [`rtl/examples/`](rtl/examples/) holds the FIFO exercise and
+  `reg_handshake`, a deliberately trivial register the harness uses as its
+  self-test. Neither is a starting point for any issue: the payload RTL is
+  yours to write.
 
 ## What CI checks
 
