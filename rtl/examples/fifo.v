@@ -40,17 +40,48 @@ module fifo #(
     output wire             empty
 );
 
-  // ---- PLACEHOLDER: delete from here to END PLACEHOLDER ----------------------
-  // Ties the outputs off so the empty module lints and builds. Change the
-  // outputs to `output reg` if you prefer to drive them from always blocks.
-  assign full    = 1'b0;
-  assign empty   = 1'b1;
-  assign rd_data = {WIDTH{1'b0}};
+    localparam integer ADDR_W = $clog2(DEPTH);
+    localparam integer COUNT_W = $clog2(DEPTH + 1);
 
-  /* verilator lint_off UNUSEDSIGNAL */
-  wire unused_placeholder = &{1'b0, clk, rst_n, wr_en, wr_data, rd_en};
-  /* verilator lint_on UNUSEDSIGNAL */
-  // ---- END PLACEHOLDER -------------------------------------------------------
+
+    reg [ADDR_W-1:0] rd_ptr; // points to next read location
+    reg [ADDR_W-1:0] wr_ptr; // points to next available location to write
+
+    reg [WIDTH-1:0] fifo [0:DEPTH-1]; // fifo array each element is WIDTH size and there are DEPTH entries
+
+    reg [COUNT_W-1:0] count;
+    assign rd_data = empty ? {WIDTH{1'b0}} : fifo[rd_ptr];
+    assign empty = (count == 0);
+    assign full = (count == DEPTH);
+
+    wire do_rd = (rd_en && !empty);
+    wire do_wr = (wr_en && !full);
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin 
+            wr_ptr <= 0;
+            rd_ptr <= 0;
+            count <= 0;
+
+        end else begin 
+            
+            if (do_wr) begin
+                fifo[wr_ptr] <= wr_data;
+                wr_ptr <= wr_ptr + 1'b1;  
+            end
+
+            if (do_rd) begin
+                rd_ptr <= rd_ptr + 1'b1;
+            end
+
+            case ({do_wr, do_rd}) 
+                2'b01: count <= count - 1; // only a read occured, decrement count
+                2'b10: count <= count + 1; // only awrite occured, incr
+                default: count <= count;
+            endcase
+        
+     end 
+    end
 
 endmodule
 
